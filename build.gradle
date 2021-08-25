@@ -1,0 +1,58 @@
+/*
+    Project logtest
+
+    Gradle build file for Jason Application
+    August 23, 2021 - 17:22:17
+*/
+
+defaultTasks 'run'
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+version '1.0'
+group   'org.jason'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+
+    //maven { url "http://jacamo.sourceforge.net/maven2" }
+    maven { url "https://raw.github.com/jacamo-lang/mvn-repo/master" }
+    maven { url "https://jade.tilab.com/maven/" }
+    
+    flatDir { dirs 'lib' }
+}
+
+dependencies {
+    implementation group: 'org.jason',     name: 'jason' ,   version: '2.6.3'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/java'
+        }
+        resources {
+            srcDir 'src/resources'
+        }
+    }
+}
+
+task run (type: JavaExec, dependsOn: 'classes') {
+    description 'runs the application'
+    main = 'jason.infra.centralised.RunCentralisedMAS'
+    args 'logtest.mas2j'
+	// options:
+	//     args = ['logtest.mas2j', '--debug']
+	//     args = ['logtest.mas2j', '--log-conf', 'l.p'] // to use file l.p to configure logging
+    classpath sourceSets.main.runtimeClasspath
+}
+
+clean {
+    delete 'bin'
+    delete 'build'
+}
+

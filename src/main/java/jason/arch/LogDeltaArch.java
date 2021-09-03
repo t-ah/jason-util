@@ -24,11 +24,9 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     private final Set<IntendedMeans> ims = new HashSet<>();
     private final Queue<String> goalStatusQueue = new LinkedList<>();
 
-    private final Map<Integer, String> instructionForIntention = new HashMap<>();
-
     private FileWriter log;
 
-    public void init() throws Exception {
+    public void init() {
         getTS().addGoalListener(this);
         setupLogging();
     }
@@ -66,18 +64,6 @@ public class LogDeltaArch extends AgArch implements GoalListener {
         initialize();
 
         System.out.println("Cycle " + getCycleNumber());
-
-        getTS().getC().getAllIntentions().forEachRemaining( intention -> {
-            instructionForIntention.put(intention.getId(), "???"); //TODO REMOVE WHEN QUIRK IS FIXED
-            IntendedMeans im = intention.peek();
-            if (im != null) {
-                PlanBody step = im.getCurrentStep();
-                if (step != null) {
-                    PlanBody instruction = step.getHead();
-                    instructionForIntention.put(intention.getId(), instruction.getSrcInfo().getSrcLine() + ": " + instruction);
-                }
-            }
-        });
     }
 
     @Override
@@ -89,8 +75,6 @@ public class LogDeltaArch extends AgArch implements GoalListener {
         Iterator<Intention> intentions = c.getAllIntentions();
         BeliefBase          bb = getBeliefBase();
         Intention           selectedIntention = c.getSelectedIntention();
-        Agent               ag = ts.getAg();
-        String              aslFile = ag.getASLSrc();
 
         JSONObject json = new JSONObject();
 

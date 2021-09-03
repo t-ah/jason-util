@@ -105,17 +105,6 @@ public class LogDeltaArch extends AgArch implements GoalListener {
         //        if ( c.getRelevantPlans() != null ) System.out.println("Relevant plans: " + c.getRelevantPlans().size());
     }
 
-    private static String intendedMeansToString(IntendedMeans im) {
-        if (im == null) return "";
-        StringBuffer buf = new StringBuffer();
-        PlanBody step = im.getCurrentStep();
-        while (step != null) {
-            buf.append(step);
-            step = step.getBodyNext();
-        }
-        return buf.toString();
-    }
-
     private void logChanges(int cycle, JSONObject json) {
         try {
             log.append(String.valueOf(cycle)).append(" ").append(json.toString(0)).append("\n");

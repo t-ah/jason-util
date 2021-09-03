@@ -93,9 +93,6 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         if (changes) {
             logChanges(cycle, json);
         }
-
-        //        if (c.getSelectedEvent() != null) System.out.println("Event: " + c.getSelectedEvent().getTrigger());
-        //        if ( c.getRelevantPlans() != null ) System.out.println("Relevant plans: " + c.getRelevantPlans().size());
     }
 
     private void logChanges(int cycle, JSONObject json) {

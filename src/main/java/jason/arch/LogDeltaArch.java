@@ -30,6 +30,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     private FileWriter log;
 
+    @Override
     public void init() {
         getTS().addGoalListener(this);
         getTS().getC().addEventListener(this);
@@ -184,6 +185,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     /*
      * Called externally, part of GoalListener. Remembers the state for when the corresponding IMs are found later.
      */
+    @Override
     public void goalFinished(Trigger goal, GoalStates result) {
         goalStatusQueue.add(result != null ? result.toString() : "null");
     }
@@ -191,6 +193,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     /*
      * @FIXME: for testing, remove later!
      */
+    @Override
     public void act(ActionExec action) {
         getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());
         action.setResult(true);

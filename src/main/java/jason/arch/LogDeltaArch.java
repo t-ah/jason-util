@@ -14,20 +14,25 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class LogDeltaArch extends AgArch implements GoalListener {
+public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceListener {
 
     private boolean initialized = false;
 
     private Set<String> oldBeliefs = new HashSet<>();
-
     private final Set<IntendedMeans> ims = new HashSet<>();
+    private final Set<Event> oldEvents = new HashSet<>();
+    private long eventCounter = 1;
+    private final Map<Event, Long> eventIDs = new HashMap<>();
+
     private final Queue<String> goalStatusQueue = new LinkedList<>();
 
     private FileWriter log;
 
     public void init() {
         getTS().addGoalListener(this);
+        getTS().getC().addEventListener(this);
         setupLogging();
     }
 
@@ -53,8 +58,7 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     private void initialize() {
         if (!initialized) {
             initialized = true;
-            JSONObject json = new JSONObject();
-            handleBeliefs(json, getBeliefBase());
+            logState(0);
         }
     }
 
@@ -69,20 +73,25 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     @Override
     public void reasoningCycleFinished() {
         super.reasoningCycleFinished();
+        logState(getCycleNumber());
+    }
 
+    private void logState(int cycle) {
         TransitionSystem    ts = getTS();
         Circumstance        c = ts.getC();
         Iterator<Intention> intentions = c.getAllIntentions();
         BeliefBase          bb = getBeliefBase();
         Intention           selectedIntention = c.getSelectedIntention();
+        Event               selectedEvent = c.getSelectedEvent();
 
         JSONObject json = new JSONObject();
 
         boolean changes = handleIntentions(json, selectedIntention, intentions);
         changes |= handleBeliefs(json, bb);
+        changes |= handleEvents(json, selectedEvent, c.getEvents());
 
         if (changes) {
-            logChanges(getCycleNumber(), json);
+            logChanges(cycle, json);
         }
 
         //        if (c.getSelectedEvent() != null) System.out.println("Event: " + c.getSelectedEvent().getTrigger());
@@ -100,6 +109,27 @@ public class LogDeltaArch extends AgArch implements GoalListener {
 
     private BeliefBase getBeliefBase() {
         return getTS().getAg().getBB();
+    }
+
+    private boolean handleEvents(JSONObject json, Event selectedEvent, Collection<Event> currentEvents) {
+        if (selectedEvent != null) json.put("SE", eventIDs.get(selectedEvent));
+
+        Set<Event> addedEvents = new HashSet<>();
+        for (Event event : currentEvents) {
+            if (oldEvents.add(event)) {
+                addedEvents.add(event);
+                eventIDs.put(event, eventCounter++);
+            }
+        }
+        if (!addedEvents.isEmpty())
+            json.put("E+", addedEvents.stream().map(this::getEventIdentifier).collect(Collectors.toList()));
+        oldEvents.remove(selectedEvent);
+
+        return selectedEvent != null || !addedEvents.isEmpty();
+    }
+
+    private String getEventIdentifier(Event e) {
+        return eventIDs.get(e) + ": " + e.getTrigger();
     }
 
     private boolean handleBeliefs(JSONObject json, BeliefBase bb) {
@@ -162,7 +192,7 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     }
 
     /*
-     * @FIXME for testing, remove later!
+     * @FIXME: for testing, remove later!
      */
     public void act(ActionExec action) {
         getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());

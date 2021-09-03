@@ -5,6 +5,8 @@
 /* Initial goals */
 
 !start(3).
+!do.
+!short(0).
 
 /* Plans */
 
@@ -34,3 +36,6 @@
 
 -!hi(H) : true <-
     +failed(H).
+
++!short(S) : true <-
+    short(S).

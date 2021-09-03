@@ -3,6 +3,8 @@ package jason.arch;
 import jason.architecture.AgArch;
 import jason.asSemantics.*;
 import jason.asSyntax.Literal;
+import jason.asSyntax.PlanBody;
+import jason.asSyntax.SourceInfo;
 import jason.asSyntax.Trigger;
 import jason.bb.BeliefBase;
 import org.json.JSONObject;
@@ -18,11 +20,9 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     private boolean initialized = false;
 
     private Set<String> oldBeliefs = new HashSet<>();
-    private Map<Integer, String> oldIntentions = new HashMap<>();
 
     private final Set<IntendedMeans> ims = new HashSet<>();
-    private int lastSelectedIntention = 0;
-    private Queue<String> goalStatusQueue = new LinkedList<>();
+    private final Queue<String> goalStatusQueue = new LinkedList<>();
 
     private final Map<Integer, String> instructionForIntention = new HashMap<>();
 
@@ -30,10 +30,10 @@ public class LogDeltaArch extends AgArch implements GoalListener {
 
     public void init() throws Exception {
         getTS().addGoalListener(this);
-        setupLogFiles();
+        setupLogging();
     }
 
-    private void setupLogFiles() {
+    private void setupLogging() {
         String userLogPath = getTS().getSettings().getUserParameter("debug-log-path");
         if (userLogPath == null) userLogPath = "./debug-log";
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
@@ -46,6 +46,7 @@ public class LogDeltaArch extends AgArch implements GoalListener {
             //noinspection ResultOfMethodCallIgnored
             logFile.createNewFile();
             log = new FileWriter(logFile);
+            log.append("{platform: \"jason\"}").append("\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -64,10 +65,18 @@ public class LogDeltaArch extends AgArch implements GoalListener {
         super.reasoningCycleStarting();
         initialize();
 
+        System.out.println("Cycle " + getCycleNumber());
+
         getTS().getC().getAllIntentions().forEachRemaining( intention -> {
+            instructionForIntention.put(intention.getId(), "???"); //TODO REMOVE WHEN QUIRK IS FIXED
             IntendedMeans im = intention.peek();
-            if (im != null)
-                instructionForIntention.put(intention.getId(), intention.peek().getCurrentStep().getHead().toString());
+            if (im != null) {
+                PlanBody step = im.getCurrentStep();
+                if (step != null) {
+                    PlanBody instruction = step.getHead();
+                    instructionForIntention.put(intention.getId(), instruction.getSrcInfo().getSrcLine() + ": " + instruction);
+                }
+            }
         });
     }
 
@@ -89,29 +98,27 @@ public class LogDeltaArch extends AgArch implements GoalListener {
         changes |= handleBeliefs(json, bb);
 
         if (changes) {
-            json.put("cycle", getCycleNumber());
-            logChanges(json);
+            logChanges(getCycleNumber(), json);
         }
 
         //        if (c.getSelectedEvent() != null) System.out.println("Event: " + c.getSelectedEvent().getTrigger());
         //        if ( c.getRelevantPlans() != null ) System.out.println("Relevant plans: " + c.getRelevantPlans().size());
-
-        /*
-        TODO:
-        - store int.means by intention (graph)
-        - check if finished, and store result
-        - where to get result?
-        - also options
-        - store instructions before cycle for each intention, read instruction from storage after depending on which intention selected
-           - how to determine failure?
-        - getSrcInfo
-        - link deltas to intendedmeans, which is linked to intention
-         */
     }
 
-    private void logChanges(JSONObject json) {
+    private static String intendedMeansToString(IntendedMeans im) {
+        if (im == null) return "";
+        StringBuffer buf = new StringBuffer();
+        PlanBody step = im.getCurrentStep();
+        while (step != null) {
+            buf.append(step);
+            step = step.getBodyNext();
+        }
+        return buf.toString();
+    }
+
+    private void logChanges(int cycle, JSONObject json) {
         try {
-            log.append(json.toString(0) + "\n");
+            log.append(String.valueOf(cycle)).append(" ").append(json.toString(0)).append("\n");
             log.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -139,47 +146,54 @@ public class LogDeltaArch extends AgArch implements GoalListener {
     }
 
     private boolean handleIntentions(JSONObject json, Intention selectedIntention, Iterator<Intention> intentions) {
-        boolean changes = false;
-        if (selectedIntention != null) {
-            changes = true;
-            json.put("SI", selectedIntention.getId());
-            lastSelectedIntention = selectedIntention.getId();
+        if (selectedIntention == null) return false;
 
-            IntendedMeans intent = selectedIntention.peek();
-            if (intent != null) {
-                System.out.println("--- INSTRUCTION: " + instructionForIntention.get(selectedIntention.getId()));
-                System.out.println("Selected: " + selectedIntention.getId());
-                // TODO log instruction
-            }
-        }
-        else {
-            lastSelectedIntention = 0;
+        json.put("SI", selectedIntention.getId());
+
+        IntendedMeans intent = selectedIntention.peek();
+        if (intent != null) {
+            PlanBody instruction = selectedIntention.peek().getCurrentStep().getHead();
+            json.put("In", instruction.getSrcInfo().getSrcLine() + ": " + instruction);
         }
 
-        intentions.forEachRemaining(intention -> {
+        List<String> imsAdded = new ArrayList<>();
+        List<String> imsRemoved = new ArrayList<>();
+
+        while (intentions.hasNext()) {
+            Intention intention = intentions.next();
             for (IntendedMeans im : intention) {
                 if (ims.add(im)) {
-                    // TODO log start of IM with intention ID
-                    System.out.println("New IM " + im.getTrigger() + " for intention " + intention.getId());
+                    SourceInfo src = im.getCurrentStep().getSrcInfo();
+                    imsAdded.add(src.getSrcFile() + ": " + src.getSrcLine());
                 }
             }
-        });
+        }
         for (IntendedMeans im : new HashSet<>(ims)) {
             if (im.isFinished()) {
                 ims.remove(im);
-                //TODO log end of IM
-                System.out.println("IM ended " + im.getTrigger());
+                imsRemoved.add(goalStatusQueue.poll() + ": " + im);
             }
         }
 
-        // TODO result to json object
-        return changes;
+        if (!imsAdded.isEmpty()) json.put("IM+", imsAdded);
+        if (!imsRemoved.isEmpty()) json.put("IM-", imsRemoved);
+
+        return true;
     }
 
     /*
      * Called externally, part of GoalListener. Remembers the state for when the corresponding IMs are found later.
      */
     public void goalFinished(Trigger goal, GoalStates result) {
-        goalStatusQueue.add(result.toString());
+        goalStatusQueue.add(result != null ? result.toString() : "null");
+    }
+
+    /*
+     * @FIXME for testing, remove later!
+     */
+    public void act(ActionExec action) {
+        getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());
+        action.setResult(true);
+        actionExecuted(action);
     }
 }

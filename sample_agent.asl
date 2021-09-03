@@ -11,6 +11,7 @@
 +!start(X) : true <-
     !hi(1);
     !hi(2);
+    !!hi(20);
     !hi(X);
     ?hi(Y);
     !hi(Y);
@@ -23,6 +24,10 @@
     .fail.
 
 +!hi(H) : true <-
+    .bla(1);
+    .bla(2);
+    test(a);
+    test(b);
     +test(H);
     +hello(H);
     +hi(H).

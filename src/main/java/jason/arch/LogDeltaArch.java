@@ -2,16 +2,14 @@ package jason.arch;
 
 import jason.architecture.AgArch;
 import jason.asSemantics.*;
-import jason.asSyntax.Literal;
-import jason.asSyntax.PlanBody;
-import jason.asSyntax.SourceInfo;
-import jason.asSyntax.Trigger;
+import jason.asSyntax.*;
 import jason.bb.BeliefBase;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -21,9 +19,11 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private boolean initialized = false;
 
     private Set<String> oldBeliefs = new HashSet<>();
-    private final Set<IntendedMeans> ims = new HashSet<>();
+    private final Map<IntendedMeans, Long> ims = new HashMap<>();
+    private final Set<Integer> knownIntentions = new HashSet<>();
     private final Set<Event> oldEvents = new HashSet<>();
     private long eventCounter = 1;
+    private long intendedMeansCounter = 1;
     private final Map<Event, Long> eventIDs = new HashMap<>();
 
     private final Queue<String> goalStatusQueue = new LinkedList<>();
@@ -38,21 +38,53 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     private void setupLogging() {
+        String agentSrc = getTS().getAg().getASLSrc();
         String userLogPath = getTS().getSettings().getUserParameter("debug-log-path");
         if (userLogPath == null) userLogPath = "./debug-log";
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
         Date date = new Date();
         File logPath = new File(userLogPath + "/" + formatter.format(date) + "/");
+        File directories = new File(logPath.getAbsolutePath() + "/src");
         //noinspection ResultOfMethodCallIgnored
-        logPath.mkdirs();
+        directories.mkdirs();
         File logFile  = new File(logPath.getAbsolutePath() + "/" + getAgName() + ".log");
+
+        JSONObject info = new JSONObject();
+        info.put("entity", "agent");
+        info.put("platform", "Jason");
+        info.put("name", getAgName());
+        info.put("src", agentSrc);
+
+        JSONObject details = new JSONObject();
+        info.put("details", details);
+        JSONObject plans = new JSONObject();
+        details.put("plans", plans);
+        for (Plan planData : getTS().getAg().getPL()) {
+            JSONObject plan = new JSONObject();
+            plan.put("trigger", planData.getTrigger());
+            plan.put("ctx", planData.getContext());
+            plan.put("body", planData.getBody());
+            plan.put("file", planData.getSrcInfo().getSrcFile());
+            plan.put("line", planData.getSrcInfo().getSrcLine());
+            plans.put(planData.getLabel().toString(), plan);
+        }
+
         try {
             //noinspection ResultOfMethodCallIgnored
             logFile.createNewFile();
             log = new FileWriter(logFile);
-            log.append("{platform: \"jason\"}").append("\n");
+            log.append(info.toString(0)).append("\n");
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        if (agentSrc.startsWith("file:")) {
+            File srcFile = new File(agentSrc.substring(5));
+            System.out.println(srcFile.exists());
+            try {
+                Files.copy(srcFile.toPath(),
+                        new File(logPath.getAbsolutePath() + "/src/" + agentSrc.substring(5)).toPath());
+            } catch (IOException ignored) {}
         }
     }
 
@@ -68,6 +100,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         super.reasoningCycleStarting();
         initialize();
 
+        // FIXME for debugging the debugger only, remove later
         System.out.println("Cycle " + getCycleNumber());
     }
 
@@ -97,8 +130,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     private void logChanges(int cycle, JSONObject json) {
+        json.put("nr", cycle);
         try {
-            log.append(String.valueOf(cycle)).append(" ").append(json.toString(0)).append("\n");
+            log.append(json.toString(0)).append("\n");
             log.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -154,25 +188,47 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         IntendedMeans intent = selectedIntention.peek();
         if (intent != null) {
             PlanBody instruction = selectedIntention.peek().getCurrentStep().getHead();
-            json.put("In", instruction.getSrcInfo().getSrcLine() + ": " + instruction);
+            JSONObject intentionData = new JSONObject();
+            intentionData.put("file", instruction.getSrcInfo().getSrcFile());
+            intentionData.put("line", instruction.getSrcInfo().getSrcLine());
+            intentionData.put("instr", instruction);
+            json.put("I", intentionData);
+        }
+        else {
+            json.put("I-", selectedIntention.getId());
         }
 
-        List<String> imsAdded = new ArrayList<>();
-        List<String> imsRemoved = new ArrayList<>();
+        List<JSONObject> imsAdded = new ArrayList<>();
+        List<JSONObject> imsRemoved = new ArrayList<>();
 
         while (intentions.hasNext()) {
             Intention intention = intentions.next();
+            if (knownIntentions.add(intention.getId())) {
+                json.put("I+", intention.getId());
+            }
             for (IntendedMeans im : intention) {
-                if (ims.add(im)) {
-                    SourceInfo src = im.getCurrentStep().getSrcInfo();
-                    imsAdded.add(src.getSrcFile() + ": " + src.getSrcLine());
+                if (!ims.containsKey(im)) {
+                    ims.put(im, intendedMeansCounter);
+                    SourceInfo src = im.getPlan().getSrcInfo();
+                    JSONObject imData = new JSONObject();
+                    imData.put("i", intention.getId());
+                    imData.put("id", intendedMeansCounter);
+                    imData.put("file", src.getSrcFile());
+                    imData.put("line", src.getSrcLine());
+                    imData.put("plan", im.getPlan().getLabel());
+                    imsAdded.add(imData);
+                    intendedMeansCounter++;
                 }
             }
         }
-        for (IntendedMeans im : new HashSet<>(ims)) {
+        for (IntendedMeans im : new HashSet<>(ims.keySet())) {
             if (im.isFinished()) {
-                ims.remove(im);
-                imsRemoved.add(goalStatusQueue.poll() + ": " + im);
+                long id = ims.remove(im);
+                JSONObject removedIM = new JSONObject();
+                removedIM.put("id", id);
+                removedIM.put("res", goalStatusQueue.poll());
+                // TODO maybe also add unifier
+                imsRemoved.add(removedIM);
             }
         }
 
@@ -191,7 +247,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     /*
-     * @FIXME: for testing, remove later!
+     * @FIXME: for testing, can be removed later!
      */
     @Override
     public void act(ActionExec action) {

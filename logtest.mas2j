@@ -14,7 +14,7 @@ MAS logtest {
 
     infrastructure: Centralised
 
-    agents: sample_agent agentArchClass jason.arch.LogDeltaArch;
+    agents: sample_agent agentArchClass jason.arch.LogDeltaArch #2;
 
     classpath: "./build/classes/java/main/";
 }

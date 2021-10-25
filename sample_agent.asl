@@ -13,11 +13,14 @@
 +!start(X) : true <-
     !hi(1);
     !hi(2);
-    !!hi(20);
+    !!parallel(20);
     !hi(X);
     ?hi(Y);
     !hi(Y);
     !do.
+
++!parallel(X) <-
+    +parallel(X).
 
 +!do : true <-
     +do("OK").

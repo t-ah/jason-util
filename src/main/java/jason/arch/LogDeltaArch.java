@@ -4,6 +4,7 @@ import jason.architecture.AgArch;
 import jason.asSemantics.*;
 import jason.asSyntax.*;
 import jason.bb.BeliefBase;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -143,7 +144,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return getTS().getAg().getBB();
     }
 
-    private boolean handleEvents(JSONObject json, Event selectedEvent, Collection<Event> currentEvents) {
+    private boolean handleEvents(JSONObject json,
+                                 Event selectedEvent,
+                                 Collection<Event> currentEvents) {
         if (selectedEvent != null) json.put("SE", eventIDs.get(selectedEvent));
 
         Set<Event> addedEvents = new HashSet<>();
@@ -153,8 +156,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                 eventIDs.put(event, eventCounter++);
             }
         }
-        if (!addedEvents.isEmpty())
+        if (!addedEvents.isEmpty()) {
             json.put("E+", addedEvents.stream().map(this::getEventIdentifier).collect(Collectors.toList()));
+        }
         oldEvents.remove(selectedEvent);
 
         return selectedEvent != null || !addedEvents.isEmpty();
@@ -192,6 +196,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             intentionData.put("file", instruction.getSrcInfo().getSrcFile());
             intentionData.put("line", instruction.getSrcInfo().getSrcLine());
             intentionData.put("instr", instruction);
+            intentionData.put("im", ims.get(intent));
             json.put("I", intentionData);
         }
         else {

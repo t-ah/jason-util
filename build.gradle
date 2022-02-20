@@ -12,8 +12,8 @@ apply plugin: 'eclipse'
 version '1.0'
 group   'org.jason'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 16
+targetCompatibility = 16
 
 repositories {
     mavenCentral()
@@ -49,6 +49,13 @@ task run (type: JavaExec, dependsOn: 'classes') {
 	// options:
 	//     args = ['logtest.mas2j', '--debug']
 	//     args = ['logtest.mas2j', '--log-conf', 'l.p'] // to use file l.p to configure logging
+    classpath sourceSets.main.runtimeClasspath
+}
+
+task blocks (type: JavaExec, dependsOn: 'classes') {
+    description 'runs the application'
+    main = 'jason.infra.centralised.RunCentralisedMAS'
+    args 'blocksworld.mas2j'
     classpath sourceSets.main.runtimeClasspath
 }
 

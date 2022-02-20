@@ -4,7 +4,6 @@ import jason.architecture.AgArch;
 import jason.asSemantics.*;
 import jason.asSyntax.*;
 import jason.bb.BeliefBase;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -145,8 +144,8 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     private boolean handleEvents(JSONObject json,
-                                 Event selectedEvent,
-                                 Collection<Event> currentEvents) {
+                                    Event selectedEvent,
+                                    Collection<Event> currentEvents) {
         if (selectedEvent != null) json.put("SE", eventIDs.get(selectedEvent));
 
         Set<Event> addedEvents = new HashSet<>();

@@ -44,17 +44,14 @@ sourceSets {
 
 task run (type: JavaExec, dependsOn: 'classes') {
     description 'runs the application'
-    main = 'jason.infra.centralised.RunCentralisedMAS'
+    main 'jason.infra.centralised.RunCentralisedMAS'
     args 'logtest.mas2j'
-	// options:
-	//     args = ['logtest.mas2j', '--debug']
-	//     args = ['logtest.mas2j', '--log-conf', 'l.p'] // to use file l.p to configure logging
     classpath sourceSets.main.runtimeClasspath
 }
 
 task blocks (type: JavaExec, dependsOn: 'classes') {
     description 'runs the application'
-    main = 'jason.infra.centralised.RunCentralisedMAS'
+    main 'jason.infra.centralised.RunCentralisedMAS'
     args 'blocksworld.mas2j'
     classpath sourceSets.main.runtimeClasspath
 }

@@ -250,13 +250,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         goalStatusQueue.add(result != null ? result.toString() : "null");
     }
 
-    /*
-     * @FIXME: for testing, can be removed later!
-     */
-    @Override
-    public void act(ActionExec action) {
-        getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());
-        action.setResult(true);
-        actionExecuted(action);
-    }
+//    @Override
+//    public void act(ActionExec action) {
+//        getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());
+//        super.act(action);
+//    }
 }

@@ -1,0 +1,9 @@
+MAS simple_blocks_world {
+    infrastructure: Centralised
+
+    environment: jason.env.blocks.BlocksWorld
+
+    agents: blocks_agent agentArchClass jason.arch.LogDeltaArch #1;
+
+    classpath: "./build/classes/java/main/";
+}

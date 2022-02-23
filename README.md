@@ -1,5 +1,9 @@
-# jason-incremental-logger
+# jason-util
 
-A Jason architecture realising incremental agent state logging.
+## A Jason architecture realising incremental agent state logging.
 
-Run example with `gradle`.
+Located in `arch`.
+
+## Some examples
+
+Run examples with `gradle` or `gradle [...]`.

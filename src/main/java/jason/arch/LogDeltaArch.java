@@ -220,6 +220,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                     imData.put("file", src.getSrcFile());
                     imData.put("line", src.getSrcLine());
                     imData.put("plan", im.getPlan().getLabel());
+                    imData.put("ctx", im.getPlan().getContext().capply(im.getUnif()));
                     imsAdded.add(imData);
                     intendedMeansCounter++;
                 }

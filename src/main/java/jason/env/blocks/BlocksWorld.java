@@ -1,21 +1,36 @@
 package jason.env.blocks;
 
-import jason.asSyntax.*;
+import jason.asSyntax.Literal;
+import jason.asSyntax.Structure;
 import jason.environment.Environment;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 
 public class BlocksWorld extends Environment {
 
     private BlocksModel model;
 
+    private int numOfRobots = 1;
+    private int numOfCommonRooms = 5;
+
     @Override
     public void init(String[] args) {
-        int numOfRobots = 1;
-        int numOfCommonRooms = 5;
-        if (args.length > 0)
-            numOfRobots = parseInt(args[0], numOfRobots);
-        if (args.length > 1)
-            numOfCommonRooms = parseInt(args[1], numOfCommonRooms);
+        if (args.length > 0) {
+            try {
+                var json = new JSONObject(Files.readString(Path.of(args[0])));
+                numOfRobots = json.getInt("robots");
+                numOfCommonRooms = json.getInt("rooms");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else {
+            System.out.println("No environment config specified.");
+        }
         model = new BlocksModel(numOfRobots, numOfCommonRooms);
         updatePercepts();
     }

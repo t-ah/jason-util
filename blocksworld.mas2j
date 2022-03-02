@@ -1,7 +1,7 @@
 MAS simple_blocks_world {
     infrastructure: Centralised
 
-    environment: jason.env.blocks.BlocksWorld(1, 5)
+    environment: jason.env.blocks.BlocksWorld("envConf/test.json")
 
     agents: new_blocks_agent agentArchClass jason.arch.LogDeltaArch #1;
 

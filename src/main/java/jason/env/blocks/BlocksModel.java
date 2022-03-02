@@ -18,8 +18,8 @@ public class BlocksModel {
     private Task currentTask;
     private int totalBlockCount = 0;
     private int currentBlockCount = 0;
-    private final int maxBlockCount = 32;
-    private final static String[] colours = new String[]{"green", "blue", "yellow", "red", "purple"}; // TODO extract to config
+    private final int maxBlockCount;
+    private final String[] colours;
 
     private final Map<String, Room> rooms = new HashMap<>();
     private final List<Room> spawnRooms = new ArrayList<>();
@@ -29,8 +29,11 @@ public class BlocksModel {
     private final Map<String, Robot> agentToRobot = new HashMap<>();
 
 
-    public BlocksModel(int numberOfRobots, int numberOfCommonRooms, int packagingProbability) {
+    public BlocksModel(int maxBlockCount, int numberOfRobots, int numberOfCommonRooms, int packagingProbability,
+                       String[] colours) {
         this.packagingProbability = packagingProbability;
+        this.colours = colours;
+        this.maxBlockCount = maxBlockCount;
         for (int i = 0; i < numberOfRobots; i++)
             createRobot();
         for (int i = 0; i < numberOfCommonRooms; i++) {

@@ -39,12 +39,10 @@ public class Robot {
         return this.heldBlock;
     }
 
-    public void setBlock(Block block) {
-        this.heldBlock = block;
-    }
-
     public Block putDown() {
         var result = this.heldBlock;
+        if (result != null)
+            result.putDown();
         this.heldBlock = null;
         return result;
     }
@@ -56,9 +54,12 @@ public class Robot {
         if (heldBlock != null)
             return null;
         if (atBlock != null) {
+            if (atBlock.isPickedUp())
+                return null;
             if (!this.room.pickUp(atBlock.id))
                     return null;
             heldBlock = atBlock;
+            heldBlock.pickUp();
             atBlock = null;
         }
         return heldBlock;

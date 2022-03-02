@@ -8,6 +8,8 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class BlocksWorld extends Environment {
@@ -17,15 +19,24 @@ public class BlocksWorld extends Environment {
     private int numOfRobots = 1;
     private int numOfCommonRooms = 5;
     private int packagingProbability = 50;
+    private int maxBlocks = 5;
+    private List<String> colours = List.of("red", "green", "blue");
 
     @Override
     public void init(String[] args) {
         if (args.length > 0) {
             try {
                 var json = new JSONObject(Files.readString(Path.of(args[0])));
-                numOfRobots = json.getInt("robots");
-                numOfCommonRooms = json.getInt("rooms");
-                packagingProbability = json.getInt("packaging");
+                numOfRobots = json.optInt("robots", numOfRobots);
+                numOfCommonRooms = json.optInt("rooms", numOfCommonRooms);
+                packagingProbability = json.optInt("packaging", packagingProbability);
+                maxBlocks = json.optInt("maxBlocks", maxBlocks);
+                var confColours = json.optJSONArray("colours");
+                if (confColours != null) {
+                    this.colours = new ArrayList<>();
+                    for (int i = 0; i < confColours.length(); i++)
+                        this.colours.add(confColours.getString(i));
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -33,7 +44,8 @@ public class BlocksWorld extends Environment {
         else {
             System.out.println("No environment config specified.");
         }
-        model = new BlocksModel(numOfRobots, numOfCommonRooms, packagingProbability);
+        model = new BlocksModel(maxBlocks, numOfRobots, numOfCommonRooms, packagingProbability,
+                colours.toArray(new String[0]));
         updatePercepts();
     }
 
@@ -58,7 +70,7 @@ public class BlocksWorld extends Environment {
 
     void updatePercepts() {
         clearAllPercepts();
-        addPercept(makePercept("world", "blocks"));
+        addPercept(makePercept("blocksworld"));
         var task = model.getCurrentTask();
         if (task != null) {
             addPercept(makePercept("task", task.id(), task.color()));
@@ -103,14 +115,5 @@ public class BlocksWorld extends Environment {
             Thread.sleep(100);
         } catch (Exception ignored) {}
         informAgsEnvironmentChanged();
-    }
-
-    private static Integer parseInt(String intString, Integer defaultValue) {
-        if (intString == null) return null;
-        try {
-            return Integer.parseInt(intString);
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
     }
 }

@@ -1,5 +1,7 @@
 {
+  "colours": ["green", "blue", "yellow", "red", "purple"],
   "robots": 1,
   "rooms": 5,
+  "maxBlocks": 5,
   "packaging": 30
 }

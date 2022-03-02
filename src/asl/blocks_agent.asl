@@ -6,7 +6,7 @@
     +done.
 
 // select a block of the right colour and go get and deliver it
-+!deliver : colour(B, C) & nextColour(C) & not holding(B) <- // this is where the bug is: holding(B) vs. holding(_)
++!deliver : colour(B, C) & nextColour(C) & not holding(_) <- // this is where the bug is: holding(B) vs. holding(_)
     gotoBlock(B);
     pickUp;
     !deliver.
@@ -33,10 +33,4 @@
     .print("I'm totally out of ideas.").
 
 +!reset <-
-    -visited(_).
-
-//+colour(B, C) : at(R) <-
-//    .print("Seeing ", B, " of colour ", C, " in ", R).
-
-//+at(R) <-
-//    .print("I'm in ", R).
+    .abolish(visited(_)).

@@ -146,7 +146,13 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private boolean handleEvents(JSONObject json,
                                     Event selectedEvent,
                                     Collection<Event> currentEvents) {
-        if (selectedEvent != null) json.put("SE", eventIDs.get(selectedEvent));
+
+        if (selectedEvent != null) {
+            if (!eventIDs.containsKey(selectedEvent)) {
+                eventIDs.put(selectedEvent, eventCounter++);
+            }
+            json.put("SE", eventIDs.get(selectedEvent));
+        }
 
         Set<Event> addedEvents = new HashSet<>();
         for (Event event : currentEvents) {
@@ -158,7 +164,6 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         if (!addedEvents.isEmpty()) {
             json.put("E+", addedEvents.stream().map(this::getEventIdentifier).collect(Collectors.toList()));
         }
-        oldEvents.remove(selectedEvent);
 
         return selectedEvent != null || !addedEvents.isEmpty();
     }

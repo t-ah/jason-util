@@ -1,37 +1,46 @@
-+nextColour(C) <-
++task(_, Colour) <-
     !prepared;
-    !holding(C);
+    !holding(Colour);
+    !processed;
     !delivered.
 
-+!prepared : nextColour(C) & holding(B) & not colour(B,C) <-
++!prepared : task(Colour) & holding(Block) & not colour(Block, Colour) <-
     putDown;
     !reset.
 
 +!prepared <-
     !reset.
 
-+!holding(C) : holding(B) & colour(B,C) <-
++!holding(Colour) : holding(Block) & colour(Block, Colour) <-
     .print("That's good.").
 
-+!holding(C) : colour(B,C) <-
-    gotoBlock(B);
++!holding(Colour) : colour(Block,Colour) <-
+    gotoBlock(Block);
     pickUp.
 
-+!holding(C) : not colour(_,C) <-
-    !found(C);
-    ?colour(B,C);
-    gotoBlock(B);
++!holding(Colour) : not colour(_, Colour) <-
+    !found(Colour);
+    ?colour(Block, Colour);
+    gotoBlock(Block);
     pickUp.
 
-+!found(C) : not colour(_,C) & place(P) & not visited(P) <-
-    goto(P);
-    +visited(P);
-    !found(C).
++!found(Colour) : not colour(_, Colour) & place(Place) & not visited(Place) <-
+    goto(Place);
+    +visited(Place);
+    !found(Colour).
 
-+!found(C) : colour(_,C) <-
++!found(Colour) : colour(_, Colour) <-
     .wait(10).
 
-+!delivered : holding(_) <-
++!processed : not packaging <-
+    .wait(10).
+
++!processed : packaging <-
+    goto(packing);
+    putDown;
+    activate.
+
++!delivered <-
     goto(dropzone);
     putDown.
 

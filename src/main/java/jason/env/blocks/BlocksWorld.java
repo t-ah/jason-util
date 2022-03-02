@@ -16,6 +16,7 @@ public class BlocksWorld extends Environment {
 
     private int numOfRobots = 1;
     private int numOfCommonRooms = 5;
+    private int packagingProbability = 50;
 
     @Override
     public void init(String[] args) {
@@ -24,6 +25,7 @@ public class BlocksWorld extends Environment {
                 var json = new JSONObject(Files.readString(Path.of(args[0])));
                 numOfRobots = json.getInt("robots");
                 numOfCommonRooms = json.getInt("rooms");
+                packagingProbability = json.getInt("packaging");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -31,7 +33,7 @@ public class BlocksWorld extends Environment {
         else {
             System.out.println("No environment config specified.");
         }
-        model = new BlocksModel(numOfRobots, numOfCommonRooms);
+        model = new BlocksModel(numOfRobots, numOfCommonRooms, packagingProbability);
         updatePercepts();
     }
 
@@ -42,13 +44,14 @@ public class BlocksWorld extends Environment {
 
         System.out.printf("Action %s received from agent %s.\n", action.toString(), agent);
 
-        boolean result = false;
-        switch (action.getFunctor()) {
-            case "putDown" -> result = model.actPutDown(agent);
-            case "pickUp" -> result = model.actPickUp(agent);
-            case "gotoBlock" -> result = model.actGotoBlock(agent, action.getTerms());
-            case "goto" -> result = model.actGoto(agent, action.getTerms());
-        }
+        boolean result = switch (action.getFunctor()) {
+            case "putDown" -> model.actPutDown(agent);
+            case "pickUp" -> model.actPickUp(agent);
+            case "gotoBlock" -> model.actGotoBlock(agent, action.getTerms());
+            case "goto" -> model.actGoto(agent, action.getTerms());
+            case "activate" -> model.actActivate(agent);
+            default -> false;
+        };
         this.actionExecuted();
         return result;
     }
@@ -56,7 +59,12 @@ public class BlocksWorld extends Environment {
     void updatePercepts() {
         clearAllPercepts();
         addPercept(makePercept("world", "blocks"));
-        addPercept(makePercept("nextColour", model.getNextColour()));
+        var task = model.getCurrentTask();
+        if (task != null) {
+            addPercept(makePercept("task", task.id(), task.color()));
+            if (task.packaging())
+                addPercept(makePercept("packaging"));
+        }
         for (Room room : model.getRooms()) {
             addPercept(makePercept("place", room.getName()));
         }
@@ -74,6 +82,10 @@ public class BlocksWorld extends Environment {
                     addPercept(robot.getAgent(), makePercept("colour", block.id, block.colour));
             }
         }
+    }
+
+    private static Literal makePercept(String functor) {
+        return Literal.parseLiteral(functor);
     }
 
     private static Literal makePercept(String functor, String param) {

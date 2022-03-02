@@ -8,14 +8,18 @@ public class BlocksModel {
 
     public final static String DROPZONE = "dropzone";
     public final static String CORRIDOR = "corridor";
+    public final static String PACKING = "packing";
 
     private final Random RNG = new Random(17);
 
+    private final int packagingProbability;
+
+    private int totalTaskCount = 0;
+    private Task currentTask;
     private int totalBlockCount = 0;
     private int currentBlockCount = 0;
     private final int maxBlockCount = 32;
-    private final static String[] colours = new String[]{"green", "blue", "yellow", "red", "purple"};
-    private String nextColour = getRandomColour();
+    private final static String[] colours = new String[]{"green", "blue", "yellow", "red", "purple"}; // TODO extract to config
 
     private final Map<String, Room> rooms = new HashMap<>();
     private final List<Room> spawnRooms = new ArrayList<>();
@@ -25,7 +29,8 @@ public class BlocksModel {
     private final Map<String, Robot> agentToRobot = new HashMap<>();
 
 
-    public BlocksModel(int numberOfRobots, int numberOfCommonRooms) {
+    public BlocksModel(int numberOfRobots, int numberOfCommonRooms, int packagingProbability) {
+        this.packagingProbability = packagingProbability;
         for (int i = 0; i < numberOfRobots; i++)
             createRobot();
         for (int i = 0; i < numberOfCommonRooms; i++) {
@@ -34,12 +39,13 @@ public class BlocksModel {
             generateBlock(room);
         }
         createRoom(DROPZONE);
+        createRoom(PACKING);
         corridor = createRoom(CORRIDOR);
-        determineNewColour();
+        createNextTask();
     }
 
-    public String getNextColour() {
-        return this.nextColour;
+    public Task getCurrentTask() {
+        return this.currentTask;
     }
 
     private Robot createRobot() {
@@ -75,7 +81,7 @@ public class BlocksModel {
 
     public void registerAgent(String agentName) {
         var optionalRobot = this.robots.values().stream().filter(Robot::isFree).findAny();
-        Robot robot = null;
+        Robot robot;
         if (optionalRobot.isEmpty())
             robot = createRobot();
         else
@@ -99,21 +105,26 @@ public class BlocksModel {
         return colours[RNG.nextInt(colours.length)];
     }
 
-    private void determineNewColour() {
-        this.nextColour = getRandomColour();
-        generateBlock(this.nextColour);
-        System.out.printf("The new colour is %s.\n", this.nextColour);
+    private void createNextTask() {
+        this.currentTask = new Task("t" + totalTaskCount++, getRandomColour(),
+                RNG.nextInt(100) < packagingProbability);
+        generateBlock(currentTask.color);
+        System.out.printf("The new colour is %s. Packaging: %s\n", currentTask.color, currentTask.packaging);
     }
 
     public boolean actPutDown(String agent) {
         var robot = agentToRobot.get(agent);
         var block = robot.putDown();
-        if (block == null)
-            return false;
+        if (PACKING.equals(robot.getRoom().getName())) {
+            if (!robot.getRoom().getBlocks().isEmpty()) return false;
+        }
         if (DROPZONE.equals(robot.getRoom().getName())) {
-            if (nextColour.equals(block.colour)) {
+            if (block != null && currentTask.color.equals(block.colour) && block.isPackaged() == currentTask.packaging) {
                 System.out.printf("Delivered block of colour %s\n", block.colour);
-                determineNewColour();
+                createNextTask();
+            }
+            else {
+                System.out.printf("Delivery failed: %s", currentTask);
             }
             currentBlockCount--;
         }
@@ -151,6 +162,18 @@ public class BlocksModel {
         return true;
     }
 
+    public boolean actActivate(String agent) {
+        var robot = agentToRobot.get(agent);
+        if (!robot.getRoom().getName().equals(PACKING))
+            return false;
+        var packingRoom = robot.getRoom();
+        var blocks = packingRoom.getBlocks();
+        if (blocks.isEmpty())
+            return false;
+        blocks.get(0).packageBlock();
+        return true;
+    }
+
     public List<Room> getRooms() {
         return new ArrayList<>(rooms.values());
     }
@@ -164,4 +187,6 @@ public class BlocksModel {
             generateBlock(spawnRooms.get(RNG.nextInt(spawnRooms.size())));
         }
     }
+
+    public record Task(String id, String color, boolean packaging){}
 }

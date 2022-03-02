@@ -28,7 +28,7 @@ repositories {
 dependencies {
     implementation group: 'org.jason',     name: 'jason' ,   version: '2.6.3'
     implementation group: 'org.json',      name: 'json',     version: '20210307'
-    implementation 'org.jetbrains:annotations:20.1.0'
+    implementation 'org.jetbrains:annotations:22.0.0'
 }
 
 sourceSets {
@@ -43,14 +43,14 @@ sourceSets {
 }
 
 task run (type: JavaExec, dependsOn: 'classes') {
-    description 'runs the application'
+    description 'runs the test application'
     main 'jason.infra.centralised.RunCentralisedMAS'
     args 'logtest.mas2j'
     classpath sourceSets.main.runtimeClasspath
 }
 
 task blocks (type: JavaExec, dependsOn: 'classes') {
-    description 'runs the application'
+    description 'runs the blocksworld application'
     main 'jason.infra.centralised.RunCentralisedMAS'
     args 'blocksworld.mas2j'
     classpath sourceSets.main.runtimeClasspath

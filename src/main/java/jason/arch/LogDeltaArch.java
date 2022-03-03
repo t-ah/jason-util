@@ -21,6 +21,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private Set<String> oldBeliefs = new HashSet<>();
     private final Map<IntendedMeans, Long> ims = new HashMap<>();
     private final Set<Integer> knownIntentions = new HashSet<>();
+    private final Set<Intention> unfinishedIntentions = new HashSet<>();
     private final Set<Event> oldEvents = new HashSet<>();
     private long eventCounter = 1;
     private long intendedMeansCounter = 1;
@@ -119,10 +120,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         Event               selectedEvent = c.getSelectedEvent();
 
         JSONObject json = new JSONObject();
+        var currentIntentions = new HashSet<Intention>();
+        intentions.forEachRemaining(currentIntentions::add);
 
-        boolean changes = handleIntentions(json, selectedIntention, intentions);
+        boolean changes = handleIntentions(json, selectedIntention, currentIntentions);
         changes |= handleBeliefs(json, bb);
-        changes |= handleEvents(json, selectedEvent, c.getEvents());
+        changes |= handleEvents(json, selectedEvent, new ArrayList<>(c.getEvents()));
 
         if (changes) {
             logChanges(cycle, json);
@@ -147,19 +150,19 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                                     Event selectedEvent,
                                     Collection<Event> currentEvents) {
 
-        if (selectedEvent != null) {
-            if (!eventIDs.containsKey(selectedEvent)) {
-                eventIDs.put(selectedEvent, eventCounter++);
-            }
-            json.put("SE", eventIDs.get(selectedEvent));
-        }
+        if (selectedEvent != null)
+            currentEvents.add(selectedEvent);
 
         Set<Event> addedEvents = new HashSet<>();
-        for (Event event : currentEvents) {
-            if (oldEvents.add(event)) {
+        for (var event : currentEvents) {
+            if (this.oldEvents.add(event)) {
                 addedEvents.add(event);
-                eventIDs.put(event, eventCounter++);
+                this.eventIDs.put(event, this.eventCounter++);
             }
+        }
+
+        if (selectedEvent != null) {
+            json.put("SE", eventIDs.get(selectedEvent));
         }
         if (!addedEvents.isEmpty()) {
             json.put("E+", addedEvents.stream().map(this::getEventIdentifier).collect(Collectors.toList()));
@@ -188,9 +191,19 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return !addedBeliefs.isEmpty() || !removedBeliefs.isEmpty();
     }
 
-    private boolean handleIntentions(JSONObject json, Intention selectedIntention, Iterator<Intention> intentions) {
-        if (selectedIntention == null) return false;
+    private boolean handleIntentions(JSONObject json, Intention selectedIntention, Set<Intention> currentIntentions) {
+        boolean changes = false;
 
+        for (Intention i: new ArrayList<>(unfinishedIntentions)) {
+            if (!currentIntentions.contains(i) && !i.isFinished()) { // if a plan fails but the trigger was a belief and not a goal
+                json.put("UI", i.getId());
+                unfinishedIntentions.remove(i);
+                changes = true;
+            }
+        }
+
+        if (selectedIntention == null)
+            return changes;
         json.put("SI", selectedIntention.getId());
 
         IntendedMeans intent = selectedIntention.peek();
@@ -210,9 +223,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         List<JSONObject> imsAdded = new ArrayList<>();
         List<JSONObject> imsRemoved = new ArrayList<>();
 
-        while (intentions.hasNext()) {
-            Intention intention = intentions.next();
+        for (var intention: currentIntentions) {
             if (knownIntentions.add(intention.getId())) {
+                unfinishedIntentions.add(intention);
                 json.put("I+", intention.getId());
             }
             for (IntendedMeans im : intention) {
@@ -256,6 +269,11 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     @Override
     public void goalFinished(Trigger goal, GoalStates result) {
         goalStatusQueue.add(result != null ? result.toString() : "null");
+        System.out.println("Goal finished: " + goal + " " + result);
+    }
+
+    public void goalFailed(Trigger goal, Term reason) {
+        System.out.println("Goal failed: " + goal + " " + reason);
     }
 
 //    @Override

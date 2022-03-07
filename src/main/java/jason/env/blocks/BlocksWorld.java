@@ -82,6 +82,7 @@ public class BlocksWorld extends Environment {
             addPercept(makePercept("place", room.getName()));
         }
         for (Robot robot : model.getRobots()) {
+            addPercept(robot.getAgent(), makePercept("energy", robot.getEnergy()));
             if (robot.atBlock() != null)
                 addPercept(robot.getAgent(), makePercept("atBlock", robot.atBlock().id));
             if (robot.isHolding()) {
@@ -101,11 +102,11 @@ public class BlocksWorld extends Environment {
         return Literal.parseLiteral(functor);
     }
 
-    private static Literal makePercept(String functor, String param) {
+    private static Literal makePercept(String functor, Object param) {
         return Literal.parseLiteral(String.format("%s(%s)", functor, param));
     }
 
-    private static Literal makePercept(String functor, String param1, String param2) {
+    private static Literal makePercept(String functor, Object param1, Object param2) {
         return Literal.parseLiteral(String.format("%s(%s,%s)", functor, param1, param2));
     }
 

@@ -105,4 +105,8 @@ public class Robot {
         this.energy -= energy;
         return true;
     }
+
+    public int getEnergy() {
+        return energy;
+    }
 }

@@ -57,7 +57,7 @@
 +!deliveryChecked(Id) : delivered(Id) <-
     ?delivered(Id).
 
-+!deliveryChecked(Id) <-
++!deliveryChecked(_) <-
     .print("I am Error.").
 
 +!reset <-

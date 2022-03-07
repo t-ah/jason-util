@@ -18,6 +18,7 @@ public class BlocksModel {
     private Task currentTask;
     private int totalBlockCount = 0;
     private int currentBlockCount = 0;
+    private String lastDelivered = "";
 
     private final Map<String, Room> rooms = new HashMap<>();
     private final List<Room> spawnRooms = new ArrayList<>();
@@ -121,7 +122,8 @@ public class BlocksModel {
         }
         if (DROPZONE.equals(robot.getRoom().getName())) {
             if (block != null && currentTask.color.equals(block.colour) && block.isPackaged() == currentTask.packaging) {
-                System.out.printf("Delivered block of colour %s\n", block.colour);
+                System.out.printf("Delivered block of colour %s for task %s\n", block.colour, currentTask.id);
+                this.lastDelivered = currentTask.id;
                 createNextTask();
             }
             else {
@@ -198,6 +200,10 @@ public class BlocksModel {
     public boolean consumeEnergy(String agent) {
         var robot = agentToRobot.get(agent);
         return robot.consumeEnergy(params.energyCost);
+    }
+
+    public String getLastDeliveredTask() {
+        return this.lastDelivered;
     }
 
     public record Task(String id, String color, boolean packaging){}

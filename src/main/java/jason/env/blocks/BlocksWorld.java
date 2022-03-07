@@ -53,10 +53,12 @@ public class BlocksWorld extends Environment {
 
         System.out.printf("Action %s received from agent %s.\n", action.toString(), agent);
 
-        if (!model.consumeEnergy(agent))
+        if (!"recharge".equals(action.getFunctor())  && !model.consumeEnergy(agent)) {
             return false;
+        }
 
         boolean result = switch (action.getFunctor()) {
+            case "wait" -> true;
             case "putDown" -> model.actPutDown(agent);
             case "pickUp" -> model.actPickUp(agent);
             case "gotoBlock" -> model.actGotoBlock(agent, action.getTerms());
@@ -72,6 +74,9 @@ public class BlocksWorld extends Environment {
     void updatePercepts() {
         clearAllPercepts();
         addPercept(makePercept("blocksworld"));
+        var lastDeliveredTask = model.getLastDeliveredTask();
+        if (lastDeliveredTask != null && !lastDeliveredTask.equals(""))
+            addPercept(makePercept("delivered", lastDeliveredTask));
         var task = model.getCurrentTask();
         if (task != null) {
             addPercept(makePercept("task", task.id(), task.color()));

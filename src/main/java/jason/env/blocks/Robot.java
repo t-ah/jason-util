@@ -5,13 +5,26 @@ public class Robot {
     private final int id;
     private String agent = null;
 
+    private static int MAX_ENERGY = 100;
+    private static int RECHARGE_ENERGY = 10;
+    private int energy;
+
     private Block heldBlock = null;
     private Block atBlock = null;
     private Room room;
 
-    public Robot(int id, Room room){
+    public Robot(int id, Room room, int energy){
         this.id = id;
         this.room = room;
+        this.energy = energy;
+    }
+
+    public static void setMaxEnergy(int maxEnergy) {
+        Robot.MAX_ENERGY = maxEnergy;
+    }
+
+    public static void setRechargeEnergy(int rechargeEnergy) {
+        Robot.RECHARGE_ENERGY = rechargeEnergy;
     }
 
     public int getId() {
@@ -80,5 +93,16 @@ public class Robot {
 
     public Block atBlock() {
         return this.atBlock;
+    }
+
+    public void recharge() {
+        this.energy = Math.min(this.energy + RECHARGE_ENERGY, MAX_ENERGY);
+    }
+
+    public boolean consumeEnergy(int energy) {
+        if (energy > this.energy)
+            return false;
+        this.energy -= energy;
+        return true;
     }
 }

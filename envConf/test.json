@@ -3,5 +3,9 @@
   "robots": 1,
   "rooms": 5,
   "maxBlocks": 5,
-  "packaging": 30
+  "packaging": 30,
+  "maxEnergy": 100,
+  "startEnergy": 5,
+  "rechargeEnergy": 10,
+  "energyCost": 5
 }

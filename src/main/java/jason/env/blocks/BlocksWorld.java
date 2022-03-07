@@ -9,33 +9,31 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
 
 
 public class BlocksWorld extends Environment {
 
     private BlocksModel model;
 
-    private int numOfRobots = 1;
-    private int numOfCommonRooms = 5;
-    private int packagingProbability = 50;
-    private int maxBlocks = 5;
-    private List<String> colours = List.of("red", "green", "blue");
-
     @Override
     public void init(String[] args) {
+        var params = new BlocksWorldParameters();
         if (args.length > 0) {
             try {
                 var json = new JSONObject(Files.readString(Path.of(args[0])));
-                numOfRobots = json.optInt("robots", numOfRobots);
-                numOfCommonRooms = json.optInt("rooms", numOfCommonRooms);
-                packagingProbability = json.optInt("packaging", packagingProbability);
-                maxBlocks = json.optInt("maxBlocks", maxBlocks);
+                params.numOfRobots = json.optInt("robots", params.numOfRobots);
+                params.numOfCommonRooms = json.optInt("rooms", params.numOfCommonRooms);
+                params.packagingProbability = json.optInt("packaging", params.packagingProbability);
+                params.maxBlocks = json.optInt("maxBlocks", params.maxBlocks);
+                params.startEnergy = json.optInt("startEnergy", params.startEnergy);
+                params.rechargeEnergy = json.optInt("rechargeEnergy", params.rechargeEnergy);
+                params.maxEnergy = json.optInt("maxEnergy", params.maxEnergy);
+                params.energyCost = json.optInt("energyCost", params.energyCost);
                 var confColours = json.optJSONArray("colours");
                 if (confColours != null) {
-                    this.colours = new ArrayList<>();
+                    params.colours = new ArrayList<>();
                     for (int i = 0; i < confColours.length(); i++)
-                        this.colours.add(confColours.getString(i));
+                        params.colours.add(confColours.getString(i));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -44,8 +42,7 @@ public class BlocksWorld extends Environment {
         else {
             System.out.println("No environment config specified.");
         }
-        model = new BlocksModel(maxBlocks, numOfRobots, numOfCommonRooms, packagingProbability,
-                colours.toArray(new String[0]));
+        model = new BlocksModel(params);
         updatePercepts();
     }
 
@@ -56,12 +53,16 @@ public class BlocksWorld extends Environment {
 
         System.out.printf("Action %s received from agent %s.\n", action.toString(), agent);
 
+        if (!model.consumeEnergy(agent))
+            return false;
+
         boolean result = switch (action.getFunctor()) {
             case "putDown" -> model.actPutDown(agent);
             case "pickUp" -> model.actPickUp(agent);
             case "gotoBlock" -> model.actGotoBlock(agent, action.getTerms());
             case "goto" -> model.actGoto(agent, action.getTerms());
             case "activate" -> model.actActivate(agent);
+            case "recharge" -> model.actRecharge(agent);
             default -> false;
         };
         this.actionExecuted();

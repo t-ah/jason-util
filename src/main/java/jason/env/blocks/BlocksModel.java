@@ -6,20 +6,18 @@ import java.util.*;
 
 public class BlocksModel {
 
+    private final BlocksWorldParameters params;
+
     public final static String DROPZONE = "dropzone";
     public final static String CORRIDOR = "corridor";
     public final static String PACKING = "packing";
 
     private final Random RNG = new Random(17);
 
-    private final int packagingProbability;
-
     private int totalTaskCount = 0;
     private Task currentTask;
     private int totalBlockCount = 0;
     private int currentBlockCount = 0;
-    private final int maxBlockCount;
-    private final String[] colours;
 
     private final Map<String, Room> rooms = new HashMap<>();
     private final List<Room> spawnRooms = new ArrayList<>();
@@ -29,14 +27,14 @@ public class BlocksModel {
     private final Map<String, Robot> agentToRobot = new HashMap<>();
 
 
-    public BlocksModel(int maxBlockCount, int numberOfRobots, int numberOfCommonRooms, int packagingProbability,
-                       String[] colours) {
-        this.packagingProbability = packagingProbability;
-        this.colours = colours;
-        this.maxBlockCount = maxBlockCount;
-        for (int i = 0; i < numberOfRobots; i++)
-            createRobot();
-        for (int i = 0; i < numberOfCommonRooms; i++) {
+    public BlocksModel(BlocksWorldParameters params) {
+        this.params = params;
+        Robot.setMaxEnergy(params.maxEnergy);
+        Robot.setRechargeEnergy(params.rechargeEnergy);
+
+        for (int i = 0; i < params.numOfRobots; i++)
+            createRobot(params.startEnergy);
+        for (int i = 0; i < params.numOfCommonRooms; i++) {
             var room = createRoom(null);
             spawnRooms.add(room);
             generateBlock(room);
@@ -51,9 +49,9 @@ public class BlocksModel {
         return this.currentTask;
     }
 
-    private Robot createRobot() {
+    private Robot createRobot(int energy) {
         var id = this.robots.size();
-        var robot = new Robot(id, corridor);
+        var robot = new Robot(id, corridor, energy);
         this.robots.put(id, robot);
         return robot;
     }
@@ -86,7 +84,7 @@ public class BlocksModel {
         var optionalRobot = this.robots.values().stream().filter(Robot::isFree).findAny();
         Robot robot;
         if (optionalRobot.isEmpty())
-            robot = createRobot();
+            robot = createRobot(params.startEnergy);
         else
             robot = optionalRobot.get();
         registerAgent(agentName, robot.getId());
@@ -105,12 +103,12 @@ public class BlocksModel {
     }
 
     private String getRandomColour() {
-        return colours[RNG.nextInt(colours.length)];
+        return params.colours.get(RNG.nextInt(params.colours.size()));
     }
 
     private void createNextTask() {
         this.currentTask = new Task("t" + totalTaskCount++, getRandomColour(),
-                RNG.nextInt(100) < packagingProbability);
+                RNG.nextInt(100) < params.packagingProbability);
         generateBlock(currentTask.color);
         System.out.printf("The new colour is %s. Packaging: %s\n", currentTask.color, currentTask.packaging);
     }
@@ -186,9 +184,20 @@ public class BlocksModel {
     }
 
     public void generateBlocks() {
-        if (currentBlockCount < maxBlockCount) {
+        if (currentBlockCount < params.maxBlocks) {
             generateBlock(spawnRooms.get(RNG.nextInt(spawnRooms.size())));
         }
+    }
+
+    public boolean actRecharge(String agent) {
+        var robot = agentToRobot.get(agent);
+        robot.recharge();
+        return true;
+    }
+
+    public boolean consumeEnergy(String agent) {
+        var robot = agentToRobot.get(agent);
+        return robot.consumeEnergy(params.energyCost);
     }
 
     public record Task(String id, String color, boolean packaging){}

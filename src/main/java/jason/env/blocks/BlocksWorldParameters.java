@@ -10,7 +10,7 @@ public class BlocksWorldParameters {
     public int maxBlocks = 5;
     public List<String> colours = List.of("red", "green", "blue");
     public int startEnergy = 5;
-    public int rechargeEnergy = 10;
+    public int rechargeEnergy = 25;
     public int maxEnergy = 100;
     public int energyCost = 5;
 }

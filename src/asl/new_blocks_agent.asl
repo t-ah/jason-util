@@ -1,15 +1,25 @@
-+task(_, Colour) <-
++task(Id, Colour) <-
+    wait;
     !prepared;
     !holding(Colour);
     !processed;
-    !delivered.
+    !delivered;
+    !deliveryChecked(Id).
 
 +!prepared : task(Colour) & holding(Block) & not colour(Block, Colour) <-
     putDown;
-    !reset.
+    !prepared.
 
 +!prepared <-
+    !charged;
     !reset.
+
++!charged : energy(MyEnergy) & MyEnergy < 80 <-
+    recharge;
+    !charged.
+
++!charged : energy(MyEnergy) <-
+    .print("My energy is ", MyEnergy).
 
 +!holding(Colour) : holding(Block) & colour(Block, Colour) <-
     .print("That's good.").
@@ -30,10 +40,10 @@
     !found(Colour).
 
 +!found(Colour) : colour(_, Colour) <-
-    .wait(10).
+    wait.
 
 +!processed : not packaging <-
-    .wait(10).
+    wait.
 
 +!processed : packaging <-
     goto(packing);
@@ -43,6 +53,12 @@
 +!delivered <-
     goto(dropzone);
     putDown.
+
++!deliveryChecked(Id) : delivered(Id) <-
+    ?delivered(Id).
+
++!deliveryChecked(Id) <-
+    .print("I am Error.").
 
 +!reset <-
     .abolish(visited(_)).

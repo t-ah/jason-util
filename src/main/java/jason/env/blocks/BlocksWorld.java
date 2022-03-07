@@ -94,11 +94,17 @@ public class BlocksWorld extends Environment {
                 var heldBlock = robot.getBlock();
                 addPercept(robot.getAgent(), makePercept("colour", heldBlock.id, heldBlock.colour));
                 addPercept(robot.getAgent(), makePercept("holding", heldBlock.id));
+                if (heldBlock.isPackaged())
+                    addPercept(makePercept("packaged", heldBlock.id));
+
             }
             if (robot.getRoom() != null) {
                 addPercept(robot.getAgent(), makePercept("at", robot.getRoom().getName()));
-                for (Block block : robot.getRoom().getBlocks())
+                for (Block block : robot.getRoom().getBlocks()) {
                     addPercept(robot.getAgent(), makePercept("colour", block.id, block.colour));
+                    if (block.isPackaged())
+                        addPercept(makePercept("packaged", block.id));
+                }
             }
         }
     }

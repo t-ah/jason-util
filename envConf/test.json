@@ -6,6 +6,6 @@
   "packaging": 30,
   "maxEnergy": 100,
   "startEnergy": 5,
-  "rechargeEnergy": 10,
+  "rechargeEnergy": 25,
   "energyCost": 5
 }

@@ -114,7 +114,14 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     @Override
     public void intentionAdded(Intention i) {  // also called when new IMs are pushed
-        var im = i.peek();
+        var currentIMs = new ArrayList<IntendedMeans>();
+        for (var im : i)
+            currentIMs.add(im);
+        var im = currentIMs.get(0);
+        IntendedMeans parentIM = null;
+        if (currentIMs.size() > 1) {
+            parentIM = currentIMs.get(1);
+        }
         if (!this.ims.containsKey(im)) {
             this.ims.put(im, imCounter);
             SourceInfo src = im.getPlan().getSrcInfo();
@@ -124,9 +131,13 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             imData.put("file", src.getSrcFile());
             imData.put("line", src.getSrcLine());
             imData.put("plan", im.getPlan().getLabel());
+            imData.put("trigger", im.getTrigger());
             String ctx = im.getPlan().getContext() == null? "T" :
                     im.getPlan().getContext().capply(im.getUnif()).toString();
             imData.put("ctx", ctx);
+            if (parentIM != null) {
+                imData.put("parent", ims.get(parentIM));
+            }
             this.newIMs.add(imData);
             imCounter++;
         }

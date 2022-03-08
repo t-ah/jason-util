@@ -1,5 +1,9 @@
-+task(Id, Colour) <-
-    wait;
+!wait.
++!wait <-
+    wait.
+
++task(Id, Colour) : not busy <-
+    +busy;
     !prepared;
     !holding(Colour);
     !processed;
@@ -55,7 +59,8 @@
     putDown.
 
 +!deliveryChecked(Id) : delivered(Id) <-
-    ?delivered(Id).
+    ?delivered(Id);
+    -busy.
 
 +!deliveryChecked(_) <-
     .print("I am Error.").

@@ -285,7 +285,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     @Override
     public void goalFinished(Trigger goal, GoalStates result) {
         goalStatusQueue.add(result != null ? result.toString() : "null");
-        System.out.println("Goal finished: " + goal + " " + result);
+//        System.out.println("Goal finished: " + goal + " " + result);
     }
 
     public void goalFailed(Trigger goal, Term reason) {

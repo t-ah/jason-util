@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class BlocksWorld extends Environment {
@@ -53,7 +54,7 @@ public class BlocksWorld extends Environment {
 
         System.out.printf("Action %s received from agent %s.\n", action.toString(), agent);
 
-        if (!"recharge".equals(action.getFunctor())  && !model.consumeEnergy(agent)) {
+        if (!List.of("recharge", "wait").contains(action.getFunctor())  && !model.consumeEnergy(agent)) {
             return false;
         }
 

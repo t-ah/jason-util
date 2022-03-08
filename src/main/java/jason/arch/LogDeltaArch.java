@@ -17,19 +17,20 @@ import java.util.stream.Collectors;
 public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceListener {
 
     private boolean initialized = false;
+    private FileWriter log;
 
     private Set<String> oldBeliefs = new HashSet<>();
-    private final Map<IntendedMeans, Long> ims = new HashMap<>();
+
     private final Set<Integer> knownIntentions = new HashSet<>();
     private final Set<Intention> unfinishedIntentions = new HashSet<>();
-    private final Set<Event> oldEvents = new HashSet<>();
-    private long eventCounter = 1;
-    private long intendedMeansCounter = 1;
-    private final Map<Event, Long> eventIDs = new HashMap<>();
-
     private final Queue<String> goalStatusQueue = new LinkedList<>();
 
-    private FileWriter log;
+    private long imCounter = 1;
+    private final Map<IntendedMeans, Long> ims = new HashMap<>();
+    private final List<JSONObject> newIMs = new ArrayList<>();
+
+    private final List<Event> newEvents = new ArrayList<>();
+
 
     @Override
     public void init() {
@@ -111,6 +112,26 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         logState(getCycleNumber());
     }
 
+    @Override
+    public void intentionAdded(Intention i) {  // also called when new IMs are pushed
+        var im = i.peek();
+        if (!this.ims.containsKey(im)) {
+            this.ims.put(im, imCounter);
+            SourceInfo src = im.getPlan().getSrcInfo();
+            JSONObject imData = new JSONObject();
+            imData.put("i", i.getId());
+            imData.put("id", imCounter);
+            imData.put("file", src.getSrcFile());
+            imData.put("line", src.getSrcLine());
+            imData.put("plan", im.getPlan().getLabel());
+            String ctx = im.getPlan().getContext() == null? "T" :
+                    im.getPlan().getContext().capply(im.getUnif()).toString();
+            imData.put("ctx", ctx);
+            this.newIMs.add(imData);
+            imCounter++;
+        }
+    }
+
     private void logState(int cycle) {
         TransitionSystem    ts = getTS();
         Circumstance        c = ts.getC();
@@ -125,7 +146,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
         boolean changes = handleIntentions(json, selectedIntention, currentIntentions);
         changes |= handleBeliefs(json, bb);
-        changes |= handleEvents(json, selectedEvent, new ArrayList<>(c.getEvents()));
+        changes |= handleEvents(json, selectedEvent);
 
         if (changes) {
             logChanges(cycle, json);
@@ -146,33 +167,30 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return getTS().getAg().getBB();
     }
 
-    private boolean handleEvents(JSONObject json,
-                                    Event selectedEvent,
-                                    Collection<Event> currentEvents) {
-
-        if (selectedEvent != null)
-            currentEvents.add(selectedEvent);
-
-        Set<Event> addedEvents = new HashSet<>();
-        for (var event : currentEvents) {
-            if (this.oldEvents.add(event)) {
-                addedEvents.add(event);
-                this.eventIDs.put(event, this.eventCounter++);
-            }
-        }
-
+    private boolean handleEvents(JSONObject json, Event selectedEvent) {
         if (selectedEvent != null) {
-            json.put("SE", eventIDs.get(selectedEvent));
+            json.put("SE", getEventIdentifier(selectedEvent, true));
         }
-        if (!addedEvents.isEmpty()) {
-            json.put("E+", addedEvents.stream().map(this::getEventIdentifier).collect(Collectors.toList()));
+        boolean loggedEvents = false;
+        if (!newEvents.isEmpty()) {
+            json.put("E+", newEvents.stream().map(event -> getEventIdentifier(event, false))
+                                             .collect(Collectors.toList()));
+            newEvents.clear();
+            loggedEvents = true;
         }
-
-        return selectedEvent != null || !addedEvents.isEmpty();
+        return loggedEvents || selectedEvent != null;
     }
 
-    private String getEventIdentifier(Event e) {
-        return eventIDs.get(e) + ": " + e.getTrigger();
+    private String getEventIdentifier(Event e, boolean useIntentionID) {
+        var intention = e.getIntention();
+        var id = "B";
+        if (intention != null) {
+            if (useIntentionID)
+                id = String.valueOf(intention.getId());
+            else
+                id = String.valueOf(ims.get(intention.peek()));
+        }
+        return id + ": " + e.getTrigger();
     }
 
     private boolean handleBeliefs(JSONObject json, BeliefBase bb) {
@@ -220,7 +238,6 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             json.put("I-", selectedIntention.getId());
         }
 
-        List<JSONObject> imsAdded = new ArrayList<>();
         List<JSONObject> imsRemoved = new ArrayList<>();
 
         for (var intention: currentIntentions) {
@@ -228,24 +245,8 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                 unfinishedIntentions.add(intention);
                 json.put("I+", intention.getId());
             }
-            for (IntendedMeans im : intention) {
-                if (!ims.containsKey(im)) {
-                    ims.put(im, intendedMeansCounter);
-                    SourceInfo src = im.getPlan().getSrcInfo();
-                    JSONObject imData = new JSONObject();
-                    imData.put("i", intention.getId());
-                    imData.put("id", intendedMeansCounter);
-                    imData.put("file", src.getSrcFile());
-                    imData.put("line", src.getSrcLine());
-                    imData.put("plan", im.getPlan().getLabel());
-                    String ctx = im.getPlan().getContext() == null? "T" :
-                            im.getPlan().getContext().capply(im.getUnif()).toString();
-                    imData.put("ctx", ctx);
-                    imsAdded.add(imData);
-                    intendedMeansCounter++;
-                }
-            }
         }
+
         for (IntendedMeans im : new HashSet<>(ims.keySet())) {
             if (im.isFinished()) {
                 long id = ims.remove(im);
@@ -257,8 +258,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             }
         }
 
-        if (!imsAdded.isEmpty()) json.put("IM+", imsAdded);
-        if (!imsRemoved.isEmpty()) json.put("IM-", imsRemoved);
+        if (!newIMs.isEmpty()) {
+            json.put("IM+", newIMs);
+            newIMs.clear();
+        }
+        if (!imsRemoved.isEmpty())
+            json.put("IM-", imsRemoved);
 
         return true;
     }
@@ -274,6 +279,10 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     public void goalFailed(Trigger goal, Term reason) {
         System.out.println("Goal failed: " + goal + " " + reason);
+    }
+
+    public void eventAdded(Event e) {
+        newEvents.add(e);
     }
 
 //    @Override

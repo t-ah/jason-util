@@ -23,6 +23,7 @@ public class Room {
     }
 
     public void putDown(Block block) {
+        if (block == null) return;
         this.blocks.put(block.id, block);
     }
 

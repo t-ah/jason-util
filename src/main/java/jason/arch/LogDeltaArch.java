@@ -14,6 +14,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Incrementally logs an agent's state.
+ * (There must be easier ways to solve some of these issues...)
+ */
 public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceListener {
 
     private boolean initialized = false;
@@ -25,9 +29,11 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private final Set<Intention> unfinishedIntentions = new HashSet<>();
     private final Queue<String> goalStatusQueue = new LinkedList<>();
 
-    private long imCounter = 1;
-    private final Map<IntendedMeans, Long> ims = new HashMap<>();
+    private int imCounter = 1;
+    private final Map<IntendedMeans, Integer> ims = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
+    private final Map<Intention, List<Integer>> imStacks = new HashMap<>();
+    private Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
 
     private final List<Event> newEvents = new ArrayList<>();
 
@@ -108,20 +114,15 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     @Override
     public void reasoningCycleFinished() {
-        super.reasoningCycleFinished();
         logState(getCycleNumber());
+        super.reasoningCycleFinished();
     }
 
     @Override
     public void intentionAdded(Intention i) {  // also called when new IMs are pushed
-        var currentIMs = new ArrayList<IntendedMeans>();
-        for (var im : i)
-            currentIMs.add(im);
-        var im = currentIMs.get(0);
-        IntendedMeans parentIM = null;
-        if (currentIMs.size() > 1) {
-            parentIM = currentIMs.get(1);
-        }
+        var im = i.peek();
+        var lastIM = lastIMbyIntention.get(i);
+
         if (!this.ims.containsKey(im)) {
             this.ims.put(im, imCounter);
             SourceInfo src = im.getPlan().getSrcInfo();
@@ -135,10 +136,18 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             String ctx = im.getPlan().getContext() == null? "T" :
                     im.getPlan().getContext().capply(im.getUnif()).toString();
             imData.put("ctx", ctx);
-            if (parentIM != null) {
-                imData.put("parent", ims.get(parentIM));
+            if (lastIM != null) {
+                imData.put("parent", lastIM);
             }
             this.newIMs.add(imData);
+
+            var stack = this.imStacks.computeIfAbsent(i, k -> new ArrayList<>());  // TODO: if works, use deque or so
+            var step = im.getPlan().getBody();
+            int index = 0;
+            while (step != null) {
+                stack.add(index++, (int) imCounter);
+                step = step.getBodyNext();
+            }
             imCounter++;
         }
     }
@@ -235,6 +244,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             return changes;
         json.put("SI", selectedIntention.getId());
 
+        var stack = imStacks.get(selectedIntention);
+        if (!stack.isEmpty()) {
+            var lastIM = stack.remove(0);
+            lastIMbyIntention.put(selectedIntention, lastIM);
+        }
+
         IntendedMeans intent = selectedIntention.peek();
         if (intent != null) {
             PlanBody instruction = selectedIntention.peek().getCurrentStep().getHead();
@@ -245,7 +260,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             intentionData.put("im", ims.get(intent));
             json.put("I", intentionData);
         }
-        else {
+        else {  // intention is empty/finished
             json.put("I-", selectedIntention.getId());
         }
 
@@ -288,10 +303,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 //        System.out.println("Goal finished: " + goal + " " + result);
     }
 
+    @Override
     public void goalFailed(Trigger goal, Term reason) {
-        System.out.println("Goal failed: " + goal + " " + reason);
+//        System.out.println("Goal failed: " + goal + " " + reason);
     }
 
+   @Override
     public void eventAdded(Event e) {
         newEvents.add(e);
     }

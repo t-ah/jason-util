@@ -33,7 +33,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private final Map<IntendedMeans, Integer> ims = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
     private final Map<Intention, List<Integer>> imStacks = new HashMap<>();
-    private Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
+    private final Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
 
     private final List<Event> newEvents = new ArrayList<>();
 
@@ -88,11 +88,13 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
         if (agentSrc.startsWith("file:")) {
             File srcFile = new File(agentSrc.substring(5));
-            System.out.println(srcFile.exists());
+            File targetFile = new File(logPath.getAbsolutePath() + "/src/" + agentSrc.substring(5));
             try {
-                Files.copy(srcFile.toPath(),
-                        new File(logPath.getAbsolutePath() + "/src/" + agentSrc.substring(5)).toPath());
-            } catch (IOException ignored) {}
+                targetFile.getParentFile().mkdirs();
+                Files.copy(srcFile.toPath(), targetFile.toPath());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

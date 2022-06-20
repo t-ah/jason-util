@@ -2,7 +2,19 @@
 +!wait <-
     wait.
 
++place(R) <- wait.
+
++task(Id,_) <-
+    .print("new task: ", Id);
+    wait.
+
 +task(Id, Colour) : not busy <-
+    !completeTask(Id, Colour).
+
++task(Id, Colour) : busy <-
+    +openTask(Id, Colour).
+
++!completeTask(Id, Colour) <-
     +busy;
     !prepared;
     !holding(Colour);
@@ -17,6 +29,9 @@
 +!prepared <-
     !charged;
     !reset.
+
++!reset <-
+    .abolish(visited(_)).
 
 +!charged : energy(MyEnergy) & MyEnergy < 80 <-
     recharge;
@@ -64,6 +79,3 @@
 
 +!deliveryChecked(_) <-
     .print("I am Error.").
-
-+!reset <-
-    .abolish(visited(_)).

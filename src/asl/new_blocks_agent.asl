@@ -2,20 +2,16 @@
 +!wait <-
     wait.
 
-+place(R) <- wait.
-
-+task(Id,_) <-
-    .print("new task: ", Id);
-    wait.
++task(Id,_) : busy.
 
 +task(Id, Colour) : not busy <-
+    +busy;
     !completeTask(Id, Colour).
 
 +task(Id, Colour) : busy <-
     +openTask(Id, Colour).
 
 +!completeTask(Id, Colour) <-
-    +busy;
     !prepared;
     !holding(Colour);
     !processed;
@@ -38,10 +34,10 @@
     !charged.
 
 +!charged : energy(MyEnergy) <-
-    .print("My energy is ", MyEnergy).
+    wait.
 
 +!holding(Colour) : holding(Block) & colour(Block, Colour) <-
-    .print("That's good.").
+    wait.
 
 +!holding(Colour) : colour(Block,Colour) <-
     gotoBlock(Block);

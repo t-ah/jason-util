@@ -32,7 +32,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private int imCounter = 1;
     private final Map<IntendedMeans, Integer> ims = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
-    private final Map<Intention, List<Integer>> imStacks = new HashMap<>();
+    private final Map<Intention, List<JSONObject>> imStacks = new HashMap<>();
     private final Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
 
     private final List<Event> newEvents = new ArrayList<>();
@@ -90,6 +90,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             File srcFile = new File(agentSrc.substring(5));
             File targetFile = new File(logPath.getAbsolutePath() + "/src/" + agentSrc.substring(5));
             try {
+                //noinspection ResultOfMethodCallIgnored
                 targetFile.getParentFile().mkdirs();
                 Files.copy(srcFile.toPath(), targetFile.toPath());
             } catch (IOException e) {
@@ -107,11 +108,10 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     @Override
     public void reasoningCycleStarting() {
-        super.reasoningCycleStarting();
+        System.out.println("Cycle " + getCycleNumber());
         initialize();
 
-        // FIXME for debugging the debugger only, remove later
-        System.out.println("Cycle " + getCycleNumber());
+        super.reasoningCycleStarting();
     }
 
     @Override
@@ -121,37 +121,55 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     @Override
-    public void intentionAdded(Intention i) {  // also called when new IMs are pushed
-        var im = i.peek();
-        var lastIM = lastIMbyIntention.get(i);
+    public void intentionAdded(Intention intention) {  // also called when new IMs are pushed
+        var im = intention.peek();
+        if (this.ims.containsKey(im)) return;
+        newIntendedMeansAdded(intention);
+    }
 
-        if (!this.ims.containsKey(im)) {
-            this.ims.put(im, imCounter);
-            SourceInfo src = im.getPlan().getSrcInfo();
-            JSONObject imData = new JSONObject();
-            imData.put("i", i.getId());
-            imData.put("id", imCounter);
-            imData.put("file", src.getSrcFile());
-            imData.put("line", src.getSrcLine());
-            imData.put("plan", im.getPlan().getLabel());
-            imData.put("trigger", im.getTrigger());
-            String ctx = im.getPlan().getContext() == null? "T" :
-                    im.getPlan().getContext().capply(im.getUnif()).toString();
-            imData.put("ctx", ctx);
-            if (lastIM != null) {
-                imData.put("parent", lastIM);
-            }
-            this.newIMs.add(imData);
+    private void newIntendedMeansAdded(Intention intention) {
+        var im = intention.peek();
+        var lastActiveIM = lastIMbyIntention.get(intention);
 
-            var stack = this.imStacks.computeIfAbsent(i, k -> new ArrayList<>());  // TODO: if works, use deque or so
-            var step = im.getPlan().getBody();
-            int index = 0;
-            while (step != null) {
-                stack.add(index++, (int) imCounter);
-                step = step.getBodyNext();
-            }
-            imCounter++;
+        int imID = this.imCounter++;
+        this.ims.put(im, imID);
+        SourceInfo src = im.getPlan().getSrcInfo();
+        JSONObject imData = new JSONObject();
+        imData.put("i", intention.getId());
+        imData.put("id", imID);
+        imData.put("file", src.getSrcFile());
+        imData.put("line", src.getSrcLine());
+        imData.put("plan", im.getPlan().getLabel());
+        imData.put("trigger", im.getTrigger());
+        String ctx = im.getPlan().getContext() == null? "T" :
+                im.getPlan().getContext().capply(im.getUnif()).toString();
+        imData.put("ctx", ctx);
+        if (lastActiveIM != null) {
+            imData.put("parent", lastActiveIM);
         }
+        this.newIMs.add(imData);
+
+        var stack = this.imStacks.computeIfAbsent(intention, k -> new ArrayList<>());
+        var step = im.getPlan().getBody();
+        var substack = new ArrayList<JSONObject>();
+        while (step != null) {
+            substack.add(extractInstruction(imID, step));
+            step = step.getBodyNext();
+        }
+        stack.addAll(0, substack);
+    }
+
+    /**
+     * Extracts information from the first instruction of the given body.
+     */
+    private JSONObject extractInstruction(int imID, PlanBody body) {
+        var src = body.getSrcInfo();
+        if (src == null) return new JSONObject();
+        return new JSONObject()
+                .put("im", imID)
+                .put("instr", body.getHead())
+                .put("file", src.getSrcFile())
+                .put("line", src.getSrcLine());
     }
 
     private void logState(int cycle) {
@@ -248,25 +266,14 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
         var stack = imStacks.get(selectedIntention);
         if (!stack.isEmpty()) {
-            var lastIM = stack.remove(0);
-            lastIMbyIntention.put(selectedIntention, lastIM);
+            var instruction = stack.remove(0);
+            lastIMbyIntention.put(selectedIntention, instruction.getInt("im"));
+            json.put("I", instruction);
         }
 
-        IntendedMeans intent = selectedIntention.peek();
-        if (intent != null) {
-            PlanBody instruction = selectedIntention.peek().getCurrentStep().getHead();
-            JSONObject intentionData = new JSONObject();
-            intentionData.put("file", instruction.getSrcInfo().getSrcFile());
-            intentionData.put("line", instruction.getSrcInfo().getSrcLine());
-            intentionData.put("instr", instruction);
-            intentionData.put("im", ims.get(intent));
-            json.put("I", intentionData);
-        }
-        else {  // intention is empty/finished
+        if (selectedIntention.isFinished() || selectedIntention.peek().isFinished()) {
             json.put("I-", selectedIntention.getId());
         }
-
-        List<JSONObject> imsRemoved = new ArrayList<>();
 
         for (var intention: currentIntentions) {
             if (knownIntentions.add(intention.getId())) {
@@ -275,12 +282,13 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             }
         }
 
+        List<JSONObject> imsRemoved = new ArrayList<>();
         for (IntendedMeans im : new HashSet<>(ims.keySet())) {
             if (im.isFinished()) {
                 long id = ims.remove(im);
-                JSONObject removedIM = new JSONObject();
-                removedIM.put("id", id);
-                removedIM.put("res", goalStatusQueue.poll());
+                JSONObject removedIM = new JSONObject()
+                        .put("id", id)
+                        .put("res", goalStatusQueue.poll());
                 // TODO maybe also add unifier
                 imsRemoved.add(removedIM);
             }
@@ -310,14 +318,8 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 //        System.out.println("Goal failed: " + goal + " " + reason);
     }
 
-   @Override
+    @Override
     public void eventAdded(Event e) {
         newEvents.add(e);
     }
-
-//    @Override
-//    public void act(ActionExec action) {
-//        getTS().getLogger().info("Agent " + getAgName() + " is doing: " + action.getActionTerm());
-//        super.act(action);
-//    }
 }

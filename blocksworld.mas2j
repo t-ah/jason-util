@@ -1,5 +1,5 @@
 MAS simple_blocks_world {
-    infrastructure: Centralised
+    infrastructure: Local
 
     environment: jason.env.blocks.BlocksWorld("envConf/test.json")
 

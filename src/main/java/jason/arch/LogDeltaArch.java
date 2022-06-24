@@ -194,13 +194,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         var currentIntentions = new HashSet<Intention>();
         intentions.forEachRemaining(currentIntentions::add);
 
-        boolean changes = handleIntentions(json, selectedIntention, currentIntentions);
-        changes |= handleBeliefs(json, bb);
-        changes |= handleEvents(json, selectedEvent);
+        handleIntentions(json, selectedIntention, currentIntentions);
+        handleBeliefs(json, bb);
+        handleEvents(json, selectedEvent);
 
-        if (changes) {
+        if (!json.keySet().isEmpty())
             logChanges(cycle, json);
-        }
     }
 
     private void logChanges(int cycle, JSONObject json) {
@@ -217,18 +216,15 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return getTS().getAg().getBB();
     }
 
-    private boolean handleEvents(JSONObject json, Event selectedEvent) {
+    private void handleEvents(JSONObject json, Event selectedEvent) {
         if (selectedEvent != null) {
             json.put("SE", getEventIdentifier(selectedEvent, true));
         }
-        boolean loggedEvents = false;
         if (!newEvents.isEmpty()) {
             json.put("E+", newEvents.stream().map(event -> getEventIdentifier(event, false))
                                              .collect(Collectors.toList()));
             newEvents.clear();
-            loggedEvents = true;
         }
-        return loggedEvents || selectedEvent != null;
     }
 
     private String getEventIdentifier(Event e, boolean useIntentionID) {
@@ -243,7 +239,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return id + ": " + e.getTrigger();
     }
 
-    private boolean handleBeliefs(JSONObject json, BeliefBase bb) {
+    private void handleBeliefs(JSONObject json, BeliefBase bb) {
         Set<String> currentBeliefs = new HashSet<>();
         for (Literal belief : bb) currentBeliefs.add(belief.toString());
 
@@ -255,39 +251,19 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
         if (!addedBeliefs.isEmpty()) json.put("B+", addedBeliefs);
         if (!removedBeliefs.isEmpty()) json.put("B-", removedBeliefs);
-
-        return !addedBeliefs.isEmpty() || !removedBeliefs.isEmpty();
     }
 
-    private boolean handleIntentions(JSONObject json, Intention selectedIntention, Set<Intention> currentIntentions) {
-        boolean changes = false;
+    private void handleIntentions(JSONObject json, Intention selectedIntention, Set<Intention> currentIntentions) {
 
         for (Intention i: new ArrayList<>(unfinishedIntentions)) {
             if (!currentIntentions.contains(i) && !i.isFinished()) { // if a plan fails but the trigger was a belief and not a goal
                 json.put("UI", i.getId());
                 unfinishedIntentions.remove(i);
-                changes = true;
             }
-        }
-
-        if (selectedIntention == null)
-            return changes;
-        json.put("SI", selectedIntention.getId());
-
-        var stack = instructionStacks.get(selectedIntention);
-        if (!stack.isEmpty()) {
-            var instruction = stack.remove(0);
-            var imID = instruction.getInt("im");
-            this.lastIMbyIntention.put(selectedIntention, imID);
-            json.put("I", instruction);
-            json.put("U", idToIM.get(imID).getUnif());
-        }
-        else {
-            System.out.println("No instruction for selected intention " + selectedIntention.getId());
-        }
-
-        if (selectedIntention.isFinished()) {
-            json.put("I-", selectedIntention.getId());
+            else if (i.isFinished()) {
+                json.put("I-", i.getId());
+                unfinishedIntentions.remove(i);
+            }
         }
 
         for (var intention: currentIntentions) {
@@ -307,15 +283,34 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                 imsRemoved.add(removedIM);
             }
         }
+        if (!imsRemoved.isEmpty())
+            json.put("IM-", imsRemoved);
 
         if (!newIMs.isEmpty()) {
             json.put("IM+", newIMs);
             newIMs.clear();
         }
-        if (!imsRemoved.isEmpty())
-            json.put("IM-", imsRemoved);
 
-        return true;
+        handleSelectedIntention(selectedIntention, json);
+    }
+
+    private void handleSelectedIntention(Intention selectedIntention, JSONObject json) {
+        if (selectedIntention == null)
+            return;
+
+        json.put("SI", selectedIntention.getId());
+
+        var stack = this.instructionStacks.get(selectedIntention);
+        if (!stack.isEmpty()) {
+            var instruction = stack.remove(0);
+            var imID = instruction.getInt("im");
+            this.lastIMbyIntention.put(selectedIntention, imID);
+            json.put("I", instruction);
+            json.put("U", idToIM.get(imID).getUnif());
+        }
+        else {
+            System.out.println("No instruction for selected intention " + selectedIntention.getId());
+        }
     }
 
     /*
@@ -324,12 +319,12 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     @Override
     public void goalFinished(Trigger goal, GoalStates result) {
         goalStatusQueue.add(result != null ? result.toString() : "null");
-//        System.out.println("Goal finished: " + goal + " " + result);
+        System.out.println("Goal finished: " + goal + " " + result);
     }
 
     @Override
     public void goalFailed(Trigger goal, Term reason) {
-//        System.out.println("Goal failed: " + goal + " " + reason);
+        System.out.println("Goal failed: " + goal + " " + reason);
     }
 
     @Override

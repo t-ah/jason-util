@@ -31,8 +31,17 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     private int imCounter = 1;
     private final Map<IntendedMeans, Integer> ims = new HashMap<>();
+    private final Map<Integer, IntendedMeans> idToIM = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
-    private final Map<Intention, List<JSONObject>> imStacks = new HashMap<>();
+
+    /**
+     * Stacks of instructions by intention. Kept to determine which instruction was run in a cycle.
+     */
+    private final Map<Intention, List<JSONObject>> instructionStacks = new HashMap<>();
+
+    /**
+     * Last IM used by an intention. Can determine an IMs parent.
+     */
     private final Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
 
     private final List<Event> newEvents = new ArrayList<>();
@@ -133,6 +142,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
         int imID = this.imCounter++;
         this.ims.put(im, imID);
+        this.idToIM.put(imID, im);
         SourceInfo src = im.getPlan().getSrcInfo();
         JSONObject imData = new JSONObject();
         imData.put("i", intention.getId());
@@ -149,7 +159,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         }
         this.newIMs.add(imData);
 
-        var stack = this.imStacks.computeIfAbsent(intention, k -> new ArrayList<>());
+        var stack = this.instructionStacks.computeIfAbsent(intention, k -> new ArrayList<>());
         var step = im.getPlan().getBody();
         var substack = new ArrayList<JSONObject>();
         while (step != null) {
@@ -264,14 +274,19 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             return changes;
         json.put("SI", selectedIntention.getId());
 
-        var stack = imStacks.get(selectedIntention);
+        var stack = instructionStacks.get(selectedIntention);
         if (!stack.isEmpty()) {
             var instruction = stack.remove(0);
-            lastIMbyIntention.put(selectedIntention, instruction.getInt("im"));
+            var imID = instruction.getInt("im");
+            this.lastIMbyIntention.put(selectedIntention, imID);
             json.put("I", instruction);
+            json.put("U", idToIM.get(imID).getUnif());
+        }
+        else {
+            System.out.println("No instruction for selected intention " + selectedIntention.getId());
         }
 
-        if (selectedIntention.isFinished() || selectedIntention.peek().isFinished()) {
+        if (selectedIntention.isFinished()) {
             json.put("I-", selectedIntention.getId());
         }
 
@@ -289,7 +304,6 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
                 JSONObject removedIM = new JSONObject()
                         .put("id", id)
                         .put("res", goalStatusQueue.poll());
-                // TODO maybe also add unifier
                 imsRemoved.add(removedIM);
             }
         }

@@ -12,7 +12,7 @@
 
 MAS logtest {
 
-    infrastructure: Centralised
+    infrastructure: Local
 
     agents: sample_agent agentArchClass jason.arch.LogDeltaArch #2;
 

@@ -26,7 +26,6 @@ repositories {
 }
 
 dependencies {
-//    implementation group: 'org.jason',     name: 'jason' ,   version: '2.6.3'
     implementation group: 'org.jason',     name: 'jason' ,   version: '3.1'
     implementation group: 'org.json',      name: 'json',     version: '20210307'
     implementation 'org.jetbrains:annotations:23.0.0'
@@ -44,17 +43,17 @@ sourceSets {
 }
 
 task run (type: JavaExec, dependsOn: 'classes') {
-    description 'runs the test application'
-    main 'jason.infra.local.RunLocalMAS'
+    description = 'runs the test application'
+    classpath   = sourceSets.main.runtimeClasspath
+    mainClass.set('jason.infra.local.RunLocalMAS')
     args 'logtest.mas2j'
-    classpath sourceSets.main.runtimeClasspath
 }
 
 task blocks (type: JavaExec, dependsOn: 'classes') {
-    description 'runs the blocksworld application'
-    main 'jason.infra.local.RunLocalMAS'
+    description = 'runs the blocksworld application'
+    classpath   = sourceSets.main.runtimeClasspath
+    mainClass.set('jason.infra.local.RunLocalMAS')
     args 'blocksworld.mas2j'
-    classpath sourceSets.main.runtimeClasspath
 }
 
 //task blocksJar(type: Jar) {

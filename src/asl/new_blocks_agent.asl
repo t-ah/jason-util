@@ -14,6 +14,7 @@
 +!completeTask(Id, Colour) <-
     !prepared;
     !holding(Colour);
+    !!failLater;
     !processed;
     !delivered;
     !deliveryChecked(Id).
@@ -75,3 +76,10 @@
 
 +!deliveryChecked(_) <-
     .print("I am Error.").
+
++!failLater <-
+    wait;
+    !failNow.
+
++!failNow <-
+    .fail.

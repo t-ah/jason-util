@@ -1,6 +1,29 @@
-!wait.
-+!wait <-
+// plans for general stuff
+
+!tests.
++!tests <-
+    !!failLater;
+    !recover;
     wait.
+
++!failLater <-
+    wait;
+    !failNow.
+
++!failNow <-
+    .fail.
+
++!recover <-
+    .fail.
+
+-!recovers <-
+    !recoverNow.
+
++!recoverNow <-
+    wait.
+
+
+// plans for the blocksworld
 
 +task(Id,_) : busy.
 
@@ -14,7 +37,6 @@
 +!completeTask(Id, Colour) <-
     !prepared;
     !holding(Colour);
-    !!failLater;
     !processed;
     !delivered;
     !deliveryChecked(Id).
@@ -76,10 +98,3 @@
 
 +!deliveryChecked(_) <-
     .print("I am Error.").
-
-+!failLater <-
-    wait;
-    !failNow.
-
-+!failNow <-
-    .fail.

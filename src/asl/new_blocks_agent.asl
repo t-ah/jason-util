@@ -3,6 +3,7 @@
 !tests.
 +!tests <-
     !!failLater;
+    !!testNoApplicablePlan;
     !recover;
     wait.
 
@@ -14,13 +15,17 @@
     .fail.
 
 +!recover <-
-    .fail.
+    .fail;
+    ?thisInstructionIsNotRun(_).
 
--!recovers <-
+-!recover <-
     !recoverNow.
 
 +!recoverNow <-
     wait.
+
++!testNoApplicablePlan <-
+    !failBecauseThereIsNoPlanForThis.
 
 
 // plans for the blocksworld
@@ -56,7 +61,7 @@
     recharge;
     !charged.
 
-+!charged : energy(MyEnergy) <-
++!charged <-
     wait.
 
 +!holding(Colour) : holding(Block) & colour(Block, Colour) <-

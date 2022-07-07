@@ -11,7 +11,9 @@ public class LogHandler extends Handler {
     @Override
     public void publish(LogRecord record) {
         var msg = record.getMessage();
-        if (msg.contains("failure")) {
+
+        var type = Failure.getErrorType(msg);
+        if (msg.startsWith("No failure")  || msg.startsWith("Found")) {
             messages.add(msg);
         }
     }

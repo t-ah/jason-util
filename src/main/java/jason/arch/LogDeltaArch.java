@@ -1,6 +1,6 @@
 package jason.arch;
 
-import jason.arch.helpers.ErrorParser;
+import jason.arch.helpers.Failure;
 import jason.arch.helpers.LogHandler;
 import jason.architecture.AgArch;
 import jason.asSemantics.*;
@@ -48,10 +48,10 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     private final List<Event> newEvents = new ArrayList<>();
 
-    private final Map<Trigger, Integer> triggerIDs = new HashMap<>();
+    private final Map<Trigger, Integer> triggerToIMID = new HashMap<>();
 
     private final List<JSONObject> imResults = new ArrayList<>();
-    private int latestFailedIM = -1;
+    private JSONObject imResultFailedRoot = null;
 
 
     @Override
@@ -128,6 +128,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         System.out.println("Cycle " + getCycleNumber());
         initialize();
         this.imResults.clear();
+        this.imResultFailedRoot = null;
         super.reasoningCycleStarting();
     }
 
@@ -149,7 +150,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         var lastActiveIM = lastIMbyIntention.get(intention);
 
         int imID = this.imCounter++;
-        this.triggerIDs.put(im.getTrigger(), imID);
+        this.triggerToIMID.put(im.getTrigger(), imID);
         this.ims.put(im, imID);
         this.idToIM.put(imID, im);
         SourceInfo src = im.getPlan().getSrcInfo();
@@ -238,14 +239,17 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     private String getEventIdentifier(Event e, boolean useIntentionID) {
         var intention = e.getIntention();
+        var trigger = e.getTrigger();
         var id = "B";
-        if (intention != null) {
-            if (useIntentionID)
+        if (trigger.isGoal()) {
+            if (intention == null)
+                id = "P";
+            else if (useIntentionID)
                 id = String.valueOf(intention.getId());
             else
                 id = String.valueOf(ims.get(intention.peek()));
         }
-        return id + ": " + e.getTrigger();
+        return id + ": " + trigger;
     }
 
     private void handleBeliefs(JSONObject json, BeliefBase bb) {
@@ -294,13 +298,23 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             json.put("IM-", imResults);
     }
 
+    /**
+     * Update failures with data from the Jason log.
+     */
     private void handlePotentialFailure() {
-        var error = agentLogHandler.checkMessage();
-        if (error == null) return;
-        imResults.add(new JSONObject()
-                        .put("id", latestFailedIM)
-                        .put("res", "failed")
-                        .put("reason", ErrorParser.parseError(error)));
+        var failure = agentLogHandler.checkMessage();
+        while (failure != null) {
+            var failureDetails = Failure.parse(failure);
+            if (Failure.PLAN_FAILURE_NO_RECOVERY.equals(failureDetails.getString("type"))) {
+                if (imResultFailedRoot == null)
+                    System.err.println("Failed goal for failure log not found.");
+                else {
+                    imResultFailedRoot.put("reason", failureDetails)
+                                      .put("res", "failed");
+                }
+            } // other types implicitly handled for now
+            failure = agentLogHandler.checkMessage();
+        }
     }
 
     private void handleSelectedIntention(Intention selectedIntention, JSONObject json) {
@@ -315,6 +329,10 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             json.put("I", instruction);
 
             var imID = instruction.optInt("im", -1);
+            if (imID == -1) {
+                System.err.println("instruction has no means:: " + instruction);
+                return;
+            }
             this.lastIMbyIntention.put(selectedIntention, imID);
             json.put("U", idToIM.get(imID).getUnif());
         }
@@ -324,18 +342,25 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     /*
-     * Called by Jason - before the potential log message is written.
+     * Called by Jason - before(!) the potential log message is written.
      */
     @Override
     public void goalFinished(Trigger goal, GoalStates result) {
 //        System.out.println("Goal finished: " + goal + " " + result);
-        int imID = triggerIDs.get(goal);
-        if (result != null) {
-            this.imResults.add(new JSONObject().put("id", imID).put("res", result.toString()));
-        }
-        else {
-            latestFailedIM = imID; //handled later, after error message has been logged
-        }
+        int     imID = triggerToIMID.getOrDefault(goal, -1);
+        String  actualResult;
+        if (imID == -1)
+            actualResult = Failure.NO_PLAN;
+        else if (result == null)
+            actualResult = Failure.UNKNOWN;
+        else
+            actualResult = result.toString();
+
+        var imResult = new JSONObject().put("id", imID).put("res",  actualResult);
+        this.imResults.add(imResult);
+
+        if (actualResult.equals(Failure.UNKNOWN)) // reason will be supplied later
+            imResultFailedRoot = imResult;
     }
 
 //    @Override

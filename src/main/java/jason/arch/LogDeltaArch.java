@@ -32,6 +32,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private final Set<Intention> unfinishedIntentions = new HashSet<>();
 
     private int imCounter = 1;
+    private int eventCounter = 1;
     private final Map<IntendedMeans, Integer> ims = new HashMap<>();
     private final Map<Integer, IntendedMeans> idToIM = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
@@ -47,6 +48,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private final Map<Intention, Integer> lastIMbyIntention = new HashMap<>();
 
     private final List<Event> newEvents = new ArrayList<>();
+    private final Map<Event, Integer> unhandledEvents = new HashMap<>();
 
     private final Map<Trigger, Integer> triggerToIMID = new HashMap<>();
 
@@ -227,29 +229,29 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     }
 
     private void handleEvents(JSONObject json, Event selectedEvent) {
-        if (selectedEvent != null) {
-            json.put("SE", getEventIdentifier(selectedEvent, true));
-        }
         if (!newEvents.isEmpty()) {
-            json.put("E+", newEvents.stream().map(event -> getEventIdentifier(event, false))
+            json.put("E+", newEvents.stream().map(this::eventToJSON)
                                              .collect(Collectors.toList()));
             newEvents.clear();
         }
+        if (selectedEvent != null) {
+            json.put("SE", eventToJSON(selectedEvent));
+            unhandledEvents.remove(selectedEvent);
+        }
     }
 
-    private String getEventIdentifier(Event e, boolean useIntentionID) {
+    private JSONObject eventToJSON(Event e) {
         var intention = e.getIntention();
         var trigger = e.getTrigger();
-        var id = "B";
-        if (trigger.isGoal()) {
-            if (intention == null)
-                id = "P";
-            else if (useIntentionID)
-                id = String.valueOf(intention.getId());
-            else
-                id = String.valueOf(ims.get(intention.peek()));
-        }
-        return id + ": " + trigger;
+        var eventResult = new JSONObject()
+                .put("t", trigger)
+                .put("id", unhandledEvents.get(e));
+        if (!trigger.isGoal())
+            eventResult.put("src", "B");
+        else if (intention == null)
+                eventResult.put("nf", true);
+
+        return eventResult;
     }
 
     private void handleBeliefs(JSONObject json, BeliefBase bb) {
@@ -357,7 +359,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             actualResult = result.toString();
 
         var imResult = new JSONObject().put("id", imID).put("res",  actualResult);
-        this.imResults.add(imResult);
+        imResults.add(imResult);
 
         if (actualResult.equals(Failure.UNKNOWN)) // reason will be supplied later
             imResultFailedRoot = imResult;
@@ -371,5 +373,6 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     @Override
     public void eventAdded(Event e) {
         newEvents.add(e);
+        unhandledEvents.put(e, eventCounter++);
     }
 }

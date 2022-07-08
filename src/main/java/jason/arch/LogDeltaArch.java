@@ -235,8 +235,8 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             newEvents.clear();
         }
         if (selectedEvent != null) {
-            json.put("SE", eventToJSON(selectedEvent));
-            unhandledEvents.remove(selectedEvent);
+            var eventID = unhandledEvents.remove(selectedEvent);
+            json.put("SE", eventID);
         }
     }
 
@@ -249,7 +249,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         if (!trigger.isGoal())
             eventResult.put("src", "B");
         else if (intention == null)
-                eventResult.put("nf", true);
+            eventResult.put("nf", true);
 
         return eventResult;
     }

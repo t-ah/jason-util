@@ -2,10 +2,37 @@
 
 !tests.
 +!tests <-
+    !test2;
+    !test3;
+    !noApplicablePlanButRecovery(3);
     !!failLater;
     !!testNoApplicablePlan;
     !recover;
     wait.
+
++!noApplicablePlanButRecovery(4) <-
+    .print("This plan is not applicable.").
+
+-!noApplicablePlanButRecovery <-
+    .print("Recovering after no applicable plan.").
+
++!test2 <-
+    .fail;
+    .print("Unreachable instruction").
+
+-!test2 <-
+    wait.
+
++!test3 <-
+    .print("test 3");
+    !mySubPlanWillFailButIRecover;
+    .print("test 3 recovered").
+
++!mySubPlanWillFailButIRecover <-
+    !failNow.
+
+-!mySubPlanWillFailButIRecover <-
+    .print("recovered for test 3 after sub-plan failed").
 
 +!failLater <-
     wait;
@@ -16,7 +43,7 @@
 
 +!recover <-
     .fail;
-    ?thisInstructionIsNotRun(_).
+    .print("Unreachable instruction").
 
 -!recover <-
     !recoverNow.

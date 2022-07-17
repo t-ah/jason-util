@@ -8,6 +8,12 @@ public class LogHandler extends Handler {
 
     private final ConcurrentLinkedQueue<String> messages = new ConcurrentLinkedQueue<>();
 
+    private final IntentionSelectedListener intentionSelectedListener;
+
+    public LogHandler(IntentionSelectedListener isl) {
+        this.intentionSelectedListener = isl;
+    }
+
     @Override
     public void publish(LogRecord record) {
         var msg = record.getMessage();
@@ -15,6 +21,8 @@ public class LogHandler extends Handler {
         var type = Failure.getErrorType(msg);
         if (msg.startsWith("No failure")  || msg.startsWith("Found")) {
             messages.add(msg);
+        } else if (msg.startsWith("Selected intention")) {
+            intentionSelectedListener.notifyIntentionSelected();
         }
     }
 

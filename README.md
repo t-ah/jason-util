@@ -2,7 +2,7 @@
 
 ## A Jason architecture realising incremental agent state logging.
 
-Located in `arch`.
+Located in `arch`. Will set log level to FINE.
 
 ## Some examples
 

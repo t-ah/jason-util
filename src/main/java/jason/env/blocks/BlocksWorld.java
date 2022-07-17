@@ -55,6 +55,7 @@ public class BlocksWorld extends Environment {
         System.out.printf("Action %s received from agent %s.\n", action.toString(), agent);
 
         if (!List.of("recharge", "wait").contains(action.getFunctor())  && !model.consumeEnergy(agent)) {
+            System.out.println("Env: Insufficient energy.");
             return false;
         }
 

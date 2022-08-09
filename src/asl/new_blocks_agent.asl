@@ -13,7 +13,7 @@
 +!noApplicablePlanButRecovery(4) <-
     .print("This plan is not applicable.").
 
--!noApplicablePlanButRecovery <-
+-!noApplicablePlanButRecovery(_) <-
     .print("Recovering after no applicable plan.").
 
 +!test2 <-

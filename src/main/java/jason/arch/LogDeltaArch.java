@@ -11,6 +11,7 @@ import jason.asSyntax.SourceInfo;
 import jason.asSyntax.Trigger;
 import jason.bb.BeliefBase;
 import org.jetbrains.annotations.NotNull;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -221,9 +222,8 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         var eventResult = new JSONObject()
                 .put("t", trigger)
                 .put("id", unhandledEvents.get(e));
-        if (!trigger.isGoal())
-            eventResult.put("src", "B");
-        else if (intention == null)
+        eventResult.put("src", trigger.isGoal()? "G" : "B");
+        if (intention == null)
             eventResult.put("nf", true);
 
         return eventResult;
@@ -245,16 +245,19 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
 
     private void handleIntentions(JSONObject json, Intention selectedIntention, Set<Intention> currentIntentions) {
 
+        var finishedIntentions = new JSONArray();
         for (Intention i: new ArrayList<>(unfinishedIntentions)) {
             if (!currentIntentions.contains(i) && !i.isFinished()) { // if a plan fails but the trigger was a belief and not a goal
                 json.put("UI", i.getId());
                 unfinishedIntentions.remove(i);
             }
             else if (i.isFinished()) {
-                json.put("I-", i.getId());
+                finishedIntentions.put(i.getId());
                 unfinishedIntentions.remove(i);
             }
         }
+        if (!finishedIntentions.isEmpty())
+            json.put("I-", finishedIntentions);
 
         for (var intention: currentIntentions) {
             if (knownIntentions.add(intention.getId())) {
@@ -283,9 +286,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         while (failure != null) {
             var failureDetails = Failure.parse(failure);
             if (Failure.PLAN_FAILURE_NO_RECOVERY.equals(failureDetails.getString("type"))) {
-                if (imResultFailedRoot == null)
+                if (imResultFailedRoot == null) {
                     System.err.println("Failed goal for failure log not found.");
-                else {
+                } else {
                     imResultFailedRoot.put("reason", failureDetails)
                                       .put("res", "failed");
                 }

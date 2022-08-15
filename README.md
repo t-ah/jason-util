@@ -59,6 +59,8 @@ Each other line of the output file is a JSONObject representing the changes made
   - t: str (event content)
   - src: str ("B"=belief, "G"=goal)
   - nf: true (indicates new focus, event may lead to a new intention)
+- A+: intention for which a pending action was added
+- A-: intention for which the latest pending action finished executing (never refers to A+ from the same cycle)
 
 ## Some examples
 

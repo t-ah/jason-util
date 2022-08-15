@@ -5,10 +5,7 @@ import jason.arch.helpers.IntentionSelectedListener;
 import jason.arch.helpers.LogHandler;
 import jason.architecture.AgArch;
 import jason.asSemantics.*;
-import jason.asSyntax.Literal;
-import jason.asSyntax.Plan;
-import jason.asSyntax.SourceInfo;
-import jason.asSyntax.Trigger;
+import jason.asSyntax.*;
 import jason.bb.BeliefBase;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
@@ -42,6 +39,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private int eventCounter = 1;
     private final Map<IntendedMeans, Integer> ims = new HashMap<>();
     private final Map<Integer, IntendedMeans> idToIM = new HashMap<>();
+    private final Map<Integer, Integer> imIDToIntentionID = new HashMap<>();
     private final List<JSONObject> newIMs = new ArrayList<>();
     private final Map<Trigger, Integer> triggerToIMID = new HashMap<>();
 
@@ -52,6 +50,9 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
     private JSONObject imResultFailedRoot = null;
 
     private JSONObject latestInstruction = null;
+
+    private final List<Integer> intentionsWithCompletedActions = new ArrayList<>();
+    private final Set<Integer> intentionsWithPendingActions = new HashSet<>();
 
 
     @Override
@@ -131,6 +132,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         this.imResults.clear();
         this.imResultFailedRoot = null;
         this.latestInstruction = null;
+        this.intentionsWithCompletedActions.clear();
         super.reasoningCycleStarting();
     }
 
@@ -153,6 +155,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         var im = intention.peek();
         int imID = this.imCounter++;
 
+        this.imIDToIntentionID.put(imID, intention.getId());
         this.triggerToIMID.put(im.getTrigger(), imID);
         this.ims.put(im, imID);
         this.idToIM.put(imID, im);
@@ -185,6 +188,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         handleIntentions(json, selectedIntention, currentIntentions);
         handleBeliefs(json, bb);
         handleEvents(json, selectedEvent);
+        handleActions(json, c.getAction());
 
         if (!json.keySet().isEmpty())
             logChanges(cycle, json);
@@ -317,6 +321,18 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
             System.out.println("No instruction for selected intention " + id);
     }
 
+    private void handleActions(JSONObject json, ActionExec action) {
+        if (!intentionsWithCompletedActions.isEmpty()) {
+            json.put("A-", intentionsWithCompletedActions);
+        }
+        if (action == null)
+            return;
+        var imID = latestInstruction.optInt("im", -1);
+        int intentionID = imIDToIntentionID.get(imID);
+        json.put("A+", intentionID);
+        intentionsWithPendingActions.add(intentionID);
+    }
+
     /*
      * Called by Jason - before(!) the potential log message is written.
      * Most recent goals finish first, may lead to parent goals finishing (failing) as well.
@@ -363,6 +379,16 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         }
     }
 
+   @Override
+    public void goalExecuting(Trigger goal, Term reason) {
+        if (reason != null && reason.toString().startsWith("action_executed")) {
+            int imID = triggerToIMID.get(goal);
+            int intentionID = imIDToIntentionID.get(imID);
+            if (intentionsWithPendingActions.remove(intentionID))
+                intentionsWithCompletedActions.add(intentionID);
+        }
+   }
+
     /**
      * Extracts information from the first instruction of the given body.
      */
@@ -374,6 +400,7 @@ public class LogDeltaArch extends AgArch implements GoalListener, CircumstanceLi
         return new JSONObject()
                 .put("im", imID)
                 .put("instr", body.getHead())
+                .put("type", body.getHead().getBodyType())
                 .put("file", src.getSrcFile())
                 .put("line", src.getSrcLine());
     }
